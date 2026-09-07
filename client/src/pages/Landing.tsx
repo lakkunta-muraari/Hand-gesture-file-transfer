@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getHandLandmarker } from "../vision/handLandmarker";
 import { useNavigate } from "react-router-dom";
 import { signaling } from "../services/signaling";
 import { guessDeviceType } from "../types/device";
@@ -22,6 +23,11 @@ export default function Landing() {
   const [showManual, setShowManual] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [introDone, setIntroDone] = useState(false);
+
+  useEffect(() => {
+    // Warm up and cache MediaPipe model in background
+    getHandLandmarker().catch(() => {});
+  }, []);
 
   async function connectAndGo(roomCode: string) {
     setError(null);

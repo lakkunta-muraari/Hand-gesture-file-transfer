@@ -112,12 +112,21 @@ export default function CameraView({
         const video = videoRef.current;
         if (video) {
           video.srcObject = stream;
-          await new Promise<void>((resolve, reject) => {
-            video.onloadedmetadata = () => {
-              video.play().then(resolve).catch(reject);
-            };
-            video.onerror = reject;
-          });
+          if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+            try {
+              await video.play();
+            } catch (e) {
+              console.warn("[CameraView] play() failed:", e);
+            }
+          } else {
+            await new Promise<void>((resolve) => {
+              video.onloadedmetadata = () => {
+                video.play().then(() => resolve()).catch(() => resolve());
+              };
+              video.onerror = () => resolve();
+              setTimeout(resolve, 1500);
+            });
+          }
         }
 
         setStatus("ready");

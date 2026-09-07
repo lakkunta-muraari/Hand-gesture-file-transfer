@@ -21,6 +21,7 @@ interface Props {
 export default function FloatingGestureHUD({ onActionDetected, onRawGesture, stagedFileName }: Props) {
   const { isDark } = useTheme();
   const [minimized, setMinimized] = useState(false);
+  const [cameraStatus, setCameraStatus] = useState<"loading" | "ready" | "error">("loading");
   const [activeGesture, setActiveGesture] = useState<Gesture>("none");
   const [lastAction, setLastAction] = useState<GestureAction>("none");
   const sequenceDetectorRef = useRef(new GestureSequenceDetector());
@@ -80,21 +81,25 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           }}>
             <div style={{ position: "absolute", inset: 0, opacity: 0.75 }}>
-              <CameraView active={true} onGestureChange={handleGestureChange} showPreview={true} />
+              <CameraView active={true} onGestureChange={handleGestureChange} onStatusChange={setCameraStatus} showPreview={true} />
             </div>
 
-            {/* LIVE Badge */}
+            {/* Camera Status Badge */}
             <div style={{
               position: "absolute", top: 10, left: 10,
               display: "flex", alignItems: "center", gap: 5,
-              background: "rgba(0,0,0,0.55)", borderRadius: 20, padding: "3px 8px", zIndex: 4,
+              background: "rgba(0,0,0,0.65)", borderRadius: 20, padding: "3px 8px", zIndex: 4,
             }}>
               <span style={{
-                width: 6, height: 6, borderRadius: "50%", background: "#ef4444",
-                display: "inline-block", boxShadow: "0 0 6px #ef4444",
-                animation: "pulse 1.2s infinite ease-in-out",
+                width: 6, height: 6, borderRadius: "50%",
+                background: cameraStatus === "ready" ? "#ef4444" : cameraStatus === "error" ? "#dc2626" : "#f59e0b",
+                display: "inline-block",
+                boxShadow: cameraStatus === "ready" ? "0 0 6px #ef4444" : "0 0 6px #f59e0b",
+                animation: cameraStatus === "ready" ? "pulse 1.2s infinite ease-in-out" : "pulse 0.8s infinite ease-in-out",
               }} />
-              <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", letterSpacing: 1 }}>LIVE</span>
+              <span style={{ fontSize: 9, fontWeight: 800, color: "#fff", letterSpacing: 1 }}>
+                {cameraStatus === "ready" ? "LIVE" : cameraStatus === "error" ? "ERROR" : "WARMING UP"}
+              </span>
             </div>
 
             {/* Center overlay label */}
@@ -117,13 +122,24 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
               </svg>
 
               <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, marginTop: 6 }}>
-                {activeGesture === "none" ? "Present hand"
-                  : activeGesture === "two-palms" ? "Two Palms Active"
-                  : activeGesture === "open-palm" ? "Open Palm Active"
+                {cameraStatus === "loading"
+                  ? "Loading Vision AI..."
+                  : cameraStatus === "error"
+                  ? "Camera Error"
+                  : activeGesture === "none"
+                  ? "Present hand"
+                  : activeGesture === "two-palms"
+                  ? "Two Palms Active"
+                  : activeGesture === "open-palm"
+                  ? "Open Palm Active"
                   : "Fist Detected"}
               </div>
               <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 1 }}>
-                {activeGesture === "none" ? "Optical Tracker" : "Locked On"}
+                {cameraStatus === "loading"
+                  ? "Downloading neural model"
+                  : activeGesture === "none"
+                  ? "Optical Tracker Ready"
+                  : "Locked On"}
               </div>
             </div>
           </div>

@@ -267,11 +267,14 @@ export default function Home() {
       if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
         showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until cleared.`, 4000);
       } else {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          try { navigator.vibrate([40, 30, 40]); } catch (_) {}
+        }
         openFileSelector();
         setShowTwoPalmsPrompt(true);
         if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
         promptTimerRef.current = setTimeout(() => setShowTwoPalmsPrompt(false), 8000);
-        showToast("Two Palms gesture detected. Choose your file.", 3000);
+        showToast("Two Palms gesture detected! Select a file to share.", 3000);
       }
     } else if (action === "grab") {
       if (stagedFileRef.current && !isSenderReady) {
@@ -300,12 +303,20 @@ export default function Home() {
 
   return (
     <LiquidGlassBackground>
-      {/* Hidden File Input */}
+      {/* Accessible Off-screen File Input */}
       <input
         ref={fileInputRef}
         type="file"
         id="gestura-file-input"
-        style={{ display: "none" }}
+        style={{
+          position: "fixed",
+          top: -9999,
+          left: -9999,
+          opacity: 0,
+          width: 1,
+          height: 1,
+          pointerEvents: "none",
+        }}
         onChange={(e) => {
           const file = e.target.files?.[0] || null;
           handleFileSelected(file);
