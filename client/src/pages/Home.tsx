@@ -11,6 +11,25 @@ import SendDropEffect from "../components/SendDropEffect";
 import type { GestureAction } from "../vision/gestureSequenceDetector";
 import type { Gesture } from "../vision/gestureDetector";
 import { useTheme } from "../utils/useTheme";
+import {
+  LiquidGlassCard,
+  LiquidGlassPill,
+  LiquidGlassCircle,
+  LiquidGlassBackground,
+} from "../components/liquid-glass/LiquidGlass";
+import {
+  IconTwoPalms,
+  IconOpenPalm,
+  IconFistGrab,
+  IconDocument,
+  IconPhone,
+  IconLaptop,
+  IconSendArrow,
+  IconReceiveArrow,
+  IconLock,
+  IconSparkle,
+  IconCheckCircle,
+} from "../components/icons/GesturaIcons";
 
 interface ActiveSenderState {
   senderId: string;
@@ -51,43 +70,15 @@ export default function Home() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fist hold timer & request cooldown
-  const fistHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRequestTimeRef = useRef<number>(0);
-
-  const showToast = useCallback((msg: string, ms = 4000) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  const showToast = useCallback((msg: string, duration = 3500) => {
     setToastMsg(msg);
-    toastTimerRef.current = setTimeout(() => setToastMsg(null), ms);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMsg(null), duration);
   }, []);
 
-  // Request file from active sender
-  const requestFileFromSender = useCallback(() => {
-    const sender = activeSenderRef.current;
-    if (!sender || sender.senderId === signaling.selfId) return;
-    if (!sender.readyToSend) {
-      showToast(`\u23f3 ${sender.senderName} hasn't grabbed the file yet. Waiting for sender...`, 3000);
-      return;
-    }
+  const selfId = signaling.selfId;
+  const isOtherSender = !!(activeSender && activeSender.senderId !== selfId);
 
-    const now = Date.now();
-    if (now - lastRequestTimeRef.current < 3500) {
-      return;
-    }
-    lastRequestTimeRef.current = now;
-
-    console.log(`[Home] Requesting file "${sender.fileName}" from sender:`, sender.senderId);
-    showToast(`\u26a1 Requesting "${sender.fileName}" from ${sender.senderName}...`, 3000);
-
-    signaling.sendBroadcast({
-      kind: "request-transfer",
-      senderId: sender.senderId,
-      receiverId: signaling.selfId,
-      receiverName: signaling.selfName || "Receiver",
-    });
-  }, [showToast]);
-
-  // Signaling & WebRTC event wiring
   useEffect(() => {
     const unsubList = signaling.on("device-list", (msg) => {
       setDevices(msg.devices);
@@ -135,7 +126,7 @@ export default function Home() {
             fileSize: data.fileSize,
             readyToSend: false,
           });
-          showToast(`\ud83d\udcc1 ${data.senderName || "A peer"} selected "${data.fileName}". Waiting for grab...`, 4000);
+          showToast(`${data.senderName || "A peer"} staged "${data.fileName}". Awaiting grab gesture...`, 4000);
         }
       } else if (data.kind === "sender-ready") {
         if (data.senderId !== signaling.selfId) {
@@ -146,21 +137,18 @@ export default function Home() {
             fileSize: data.fileSize,
             readyToSend: true,
           });
-          showToast(`\u2728 ${data.senderName || "A peer"} is ready to share "${data.fileName}"! Show closed palm \u270a to download.`, 6000);
+          showToast(`${data.senderName || "A peer"} is ready to share "${data.fileName}". Present closed fist to download.`, 6000);
         }
       } else if (data.kind === "file-cleared") {
         setActiveSender(null);
         showToast("File cleared. Any device can now select a file.", 3000);
-      } else if (data.kind === "request-transfer") {
-        if (data.senderId === signaling.selfId && stagedFileRef.current) {
-          const targetReceiverId = data.receiverId;
-          const targetReceiverName = data.receiverName || "Receiver";
-          console.log(`[Home] Transfer request from ${targetReceiverName} (${targetReceiverId})`);
-          showToast(`\ud83d\ude80 Transferring "${stagedFileRef.current.name}" to ${targetReceiverName}...`, 3500);
-
-          fileTransfer.sendFile(targetReceiverId, stagedFileRef.current).catch((err) => {
-            console.error(`[Home] Failed to send file to ${targetReceiverName}:`, err);
-            showToast(`\u274c Transfer to ${targetReceiverName} failed.`, 3000);
+      } else if (data.kind === "receiver-ready") {
+        if (stagedFileRef.current && isSenderReady) {
+          const targetPeerId = data.receiverId;
+          showToast(`Transferring "${stagedFileRef.current.name}" to ${data.receiverName}...`, 3000);
+          fileTransfer.sendFile(targetPeerId, stagedFileRef.current).catch((err) => {
+            console.error("Transfer error:", err);
+            showToast(`Transfer failed: ${err.message}`);
           });
         }
       }
@@ -173,7 +161,7 @@ export default function Home() {
           setPreviewUrl(URL.createObjectURL(progress.blob));
         }
         setShowWaterDropCeremony(true);
-        showToast(`\ud83c\udf89 Downloaded "${progress.name}" successfully!`, 4000);
+        showToast(`Downloaded "${progress.name}" successfully!`, 4000);
       }
     });
 
@@ -182,14 +170,13 @@ export default function Home() {
       unsubBroadcast();
       unsubTransfer();
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (fistHoldTimerRef.current) clearTimeout(fistHoldTimerRef.current);
       if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
     };
   }, [isSenderReady, showToast]);
 
   const openFileSelector = useCallback(() => {
     if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
-      showToast(`\u26a0\ufe0f ${activeSenderRef.current.senderName} has already selected a file. Wait until it is cleared.`, 4000);
+      showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until current transfer clears.`, 4000);
       return;
     }
     if (fileInputRef.current) {
@@ -204,7 +191,7 @@ export default function Home() {
     setShowTwoPalmsPrompt(false);
 
     if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
-      showToast(`\u26a0\ufe0f ${activeSenderRef.current.senderName} has already selected a file. Wait until it is cleared.`, 4000);
+      showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until current transfer clears.`, 4000);
       return;
     }
 
@@ -227,7 +214,7 @@ export default function Home() {
       ...senderState,
     });
 
-    showToast(`\ud83d\udcc1 "${file.name}" staged! Show \ud83d\udd90\ufe0f \u27a1 \u270a (grab) in front of camera to share with room.`, 5000);
+    showToast(`"${file.name}" staged. Perform Grab gesture in camera view to ready file.`, 5000);
   }, [showToast]);
 
   const handleClearStagedFile = useCallback(() => {
@@ -249,7 +236,7 @@ export default function Home() {
   const handleSenderGrab = useCallback(() => {
     const file = stagedFileRef.current;
     if (!file) {
-      showToast("\u26a0\ufe0f No file staged! Show \ud83d\udd90\ufe0f\ud83d\udd90\ufe0f (two palms) to pick a file first.");
+      showToast("No file staged. Show Two Palms gesture to pick a file first.");
       return;
     }
 
@@ -270,58 +257,49 @@ export default function Home() {
       ...senderState,
     });
 
-    showToast(`\u2728 Grabbed! Ready to share "${file.name}". Show closed palm \u270a to any receiver to transfer!`, 5000);
+    showToast(`File ready. Sharing "${file.name}". Receivers can present closed fist to download.`, 5000);
   }, [showToast]);
 
-  // High-level gesture actions
   const handleGestureAction = useCallback((action: GestureAction) => {
     console.log(`[Home] Gesture action received: ${action}`);
 
     if (action === "open-file-picker") {
       if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
-        showToast(`\u26a0\ufe0f ${activeSenderRef.current.senderName} has already selected a file. Wait until it clears.`, 4000);
+        showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until cleared.`, 4000);
       } else {
         openFileSelector();
         setShowTwoPalmsPrompt(true);
         if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
         promptTimerRef.current = setTimeout(() => setShowTwoPalmsPrompt(false), 8000);
-        showToast("\ud83d\udd90\ufe0f\ud83d\udd90\ufe0f Two Palms detected! Choose your file.", 3000);
+        showToast("Two Palms gesture detected. Choose your file.", 3000);
       }
     } else if (action === "grab") {
       if (stagedFileRef.current && !isSenderReady) {
         handleSenderGrab();
       }
     } else if (action === "release") {
-      if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId && activeSenderRef.current.readyToSend) {
-        requestFileFromSender();
+      if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
+        if (activeSenderRef.current.readyToSend) {
+          showToast(`Requesting "${activeSenderRef.current.fileName}" from ${activeSenderRef.current.senderName}...`, 3000);
+          signaling.sendBroadcast({
+            kind: "receiver-ready",
+            receiverId: signaling.selfId,
+            receiverName: signaling.selfName || "Peer",
+            senderId: activeSenderRef.current.senderId,
+          });
+        } else {
+          showToast(`${activeSenderRef.current.senderName} has not initiated grab gesture yet.`, 3000);
+        }
       }
     }
-  }, [openFileSelector, isSenderReady, handleSenderGrab, requestFileFromSender, showToast]);
+  }, [isSenderReady, openFileSelector, handleSenderGrab, showToast]);
 
-  const handleRawGesture = useCallback((gesture: Gesture) => {
-    const sender = activeSenderRef.current;
-    const isReceiver = sender && sender.senderId !== signaling.selfId && sender.readyToSend;
-
-    if (gesture === "fist" && isReceiver) {
-      if (!fistHoldTimerRef.current) {
-        fistHoldTimerRef.current = setTimeout(() => {
-          requestFileFromSender();
-          fistHoldTimerRef.current = null;
-        }, 350);
-      }
-    } else {
-      if (fistHoldTimerRef.current) {
-        clearTimeout(fistHoldTimerRef.current);
-        fistHoldTimerRef.current = null;
-      }
-    }
-  }, [requestFileFromSender]);
-
-  const isOtherSender = activeSender && activeSender.senderId !== signaling.selfId;
-  const selfId = signaling.selfId;
+  const handleRawGesture = useCallback((_gesture: Gesture) => {
+    // Handled in HUD
+  }, []);
 
   return (
-    <div style={{ minHeight: "100vh", background: isDark ? "#090d16" : "#f8fafc", position: "relative", overflowX: "hidden", transition: "background 0.25s ease" }}>
+    <LiquidGlassBackground>
       {/* Hidden File Input */}
       <input
         ref={fileInputRef}
@@ -359,10 +337,17 @@ export default function Home() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 28 }}>{"\ud83d\udd90\ufe0f\ud83d\udd90\ufe0f"}</span>
+            <div style={{
+              width: 40, height: 40, borderRadius: 12,
+              background: "rgba(255, 255, 255, 0.22)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <IconTwoPalms size={22} color="#ffffff" />
+            </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>Two Palms Detected!</div>
-              <div style={{ fontSize: 12, opacity: 0.9, marginTop: 1 }}>Tap here to select file {"\ud83d\udcc1"}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: -0.2 }}>Two Palms Detected</div>
+              <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>Tap here to browse and select file</div>
             </div>
           </div>
           <button
@@ -370,11 +355,16 @@ export default function Home() {
             onClick={(e) => { e.stopPropagation(); setShowTwoPalmsPrompt(false); }}
             style={{
               background: "rgba(255,255,255,0.2)", border: "none", color: "#fff",
-              borderRadius: "50%", width: 26, height: 26, fontSize: 13,
-              cursor: "pointer", fontWeight: 800,
+              borderRadius: "50%", width: 26, height: 26,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              padding: 0,
             }}
+            aria-label="Close alert"
           >
-            {"\u2715"}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
       )}
@@ -412,7 +402,7 @@ export default function Home() {
           height: 240, pointerEvents: "none", zIndex: 0, overflow: "hidden",
         }}
       >
-        <svg viewBox="0 0 1440 320" fill="none" style={{ width: "100%", height: "100%", opacity: isDark ? 0.35 : 0.55 }} preserveAspectRatio="none">
+        <svg viewBox="0 0 1440 320" fill="none" style={{ width: "100%", height: "100%", opacity: isDark ? 0.30 : 0.45 }} preserveAspectRatio="none">
           <path
             d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,165.3C960,149,1056,171,1152,186.7C1248,203,1344,213,1392,218.7L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
             fill="url(#wave-grad)"
@@ -444,14 +434,17 @@ export default function Home() {
               </span>
             </div>
 
-            {/* Room Code */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: isDark ? "#111827" : "#ffffff",
-              padding: "5px 12px", borderRadius: 20,
-              border: isDark ? "1px solid #1f2937" : "1px solid #e2e8f0",
-              boxShadow: isDark ? "0 2px 10px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.04)",
-            }}>
+            {/* Room Code with LiquidGlassPill */}
+            <LiquidGlassPill
+              tone={isDark ? "dark" : "clear"}
+              interactive={false}
+              style={{
+                padding: "6px 14px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+              }}
+            >
               <span style={{ fontSize: 13, color: isDark ? "#94a3b8" : "#475569", fontWeight: 500 }}>
                 Room: <strong style={{ color: isDark ? "#f8fafc" : "#0f172a" }}>{roomCode}</strong>
               </span>
@@ -469,28 +462,23 @@ export default function Home() {
                 onClick={() => setShowInviteModal(true)}
                 style={{ color: "#f97316", fontSize: 18, cursor: "pointer", fontWeight: 700 }}
               >
-                {"\u22ee"}
+                {"⋮"}
               </span>
-            </div>
+            </LiquidGlassPill>
           </div>
 
           <div className="dashboard-nav-right">
-            {/* 1st button: Light / Dark Theme toggle */}
-            <button
-              type="button"
+            {/* 1st button: Light / Dark Theme toggle with LiquidGlassCircle */}
+            <LiquidGlassCircle
+              tone={isDark ? "dark" : "clear"}
+              interactive
               onClick={toggleTheme}
-              title={isDark ? "Switch to Light Theme" : "Switch to Dark Theme"}
-              aria-label="Toggle Theme"
               style={{
-                width: 36, height: 36, borderRadius: "50%",
-                background: isDark ? "#111827" : "#ffffff",
-                border: isDark ? "1px solid #1f2937" : "1px solid #e2e8f0",
-                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 36,
+                height: 36,
                 color: isDark ? "#facc15" : "#475569",
-                cursor: "pointer",
-                boxShadow: isDark ? "0 0 14px rgba(250, 204, 21, 0.25)" : "0 2px 8px rgba(0,0,0,0.04)",
-                transition: "all 0.2s ease",
               }}
+              ariaLabel="Toggle Theme"
             >
               {isDark ? (
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -505,27 +493,26 @@ export default function Home() {
                   <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               )}
-            </button>
+            </LiquidGlassCircle>
 
-            {/* 2nd button: Leave Room */}
-            <button
-              type="button"
+            {/* 2nd button: Leave Room with LiquidGlassPill */}
+            <LiquidGlassPill
+              tone="dark"
+              interactive
               onClick={() => { signaling.disconnect(); navigate("/"); }}
-              title="Leave Room"
-              aria-label="Leave Room"
               style={{
                 height: 36,
-                borderRadius: 18,
-                padding: "0 12px",
-                background: isDark ? "rgba(239, 68, 68, 0.16)" : "#fee2e2",
-                border: isDark ? "1px solid rgba(239, 68, 68, 0.35)" : "1px solid #fecaca",
-                display: "flex", alignItems: "center", gap: 6,
+                padding: "0 14px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: isDark ? "rgba(239, 68, 68, 0.16)" : "rgba(254, 226, 226, 0.8)",
+                borderColor: isDark ? "rgba(239, 68, 68, 0.35)" : "#fecaca",
                 color: isDark ? "#f87171" : "#dc2626",
-                cursor: "pointer",
                 fontWeight: 700,
                 fontSize: 12,
-                transition: "all 0.2s ease",
               }}
+              ariaLabel="Leave Room"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -533,7 +520,7 @@ export default function Home() {
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
               <span>Leave</span>
-            </button>
+            </LiquidGlassPill>
           </div>
         </div>
 
@@ -559,8 +546,8 @@ export default function Home() {
             </h1>
 
             <p className="hero-subtext">
-              {"Show two palms \u270b \u270b to select a file,"}<br />
-              {"or tap \u201cSelect File\u201d."}
+              {"Show Two Palms gesture to select a file,"}<br />
+              {"or tap “Select File” below."}
             </p>
           </div>
 
@@ -576,9 +563,15 @@ export default function Home() {
             }} />
 
             {/* Sparkles */}
-            <span style={{ position: "absolute", top: "10%", right: "14%", color: "rgba(255,255,255,0.85)", fontSize: 14 }}>{"\u2726"}</span>
-            <span style={{ position: "absolute", top: "28%", left: "7%", color: "rgba(255,255,255,0.75)", fontSize: 10 }}>{"\u2726"}</span>
-            <span style={{ position: "absolute", bottom: "12%", right: "24%", color: "rgba(255,255,255,0.75)", fontSize: 12 }}>{"\u2726"}</span>
+            <span style={{ position: "absolute", top: "10%", right: "14%", color: "rgba(255,255,255,0.85)" }}>
+              <IconSparkle size={14} color="rgba(255,255,255,0.85)" />
+            </span>
+            <span style={{ position: "absolute", top: "28%", left: "7%", color: "rgba(255,255,255,0.75)" }}>
+              <IconSparkle size={10} color="rgba(255,255,255,0.75)" />
+            </span>
+            <span style={{ position: "absolute", bottom: "12%", right: "24%", color: "rgba(255,255,255,0.75)" }}>
+              <IconSparkle size={12} color="rgba(255,255,255,0.75)" />
+            </span>
 
             {/* Document Glass Card */}
             <div style={{
@@ -620,39 +613,56 @@ export default function Home() {
         <div className="dashboard-content-row">
           {/* Left Column: Devices & Transfer */}
           <div className="devices-column">
-            {/* Staged File Card */}
+            {/* Staged File Card with LiquidGlassCard */}
             {stagedFileName && (
-              <div
+              <LiquidGlassCard
+                tone="violet"
+                interactive={false}
                 style={{
-                  background: "#fff", border: isSenderReady ? "2px solid #10b981" : "2px solid #6366f1",
-                  padding: "16px 20px", borderRadius: 22, marginBottom: 20,
-                  boxShadow: "0 6px 20px rgba(108, 92, 231, 0.08)",
-                  display: "flex", flexDirection: "column", gap: 10,
+                  border: isSenderReady ? "2px solid #10b981" : "2px solid #6366f1",
+                  padding: "18px 22px",
+                  borderRadius: 24,
+                  marginBottom: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <span style={{
                       fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
-                      color: isSenderReady ? "#10b981" : "#6366f1", textTransform: "uppercase",
+                      color: isSenderReady ? "#10b981" : (isDark ? "#818cf8" : "#6366f1"), textTransform: "uppercase",
                     }}>
-                      {isSenderReady ? "\u2728 Ready to Send (Grabbed)" : "\ud83d\udcc1 Staged File (You are Sender)"}
+                      isSenderReady ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <IconCheckCircle size={13} color="#10b981" />
+                          <span>Ready to Send (Grabbed)</span>
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <IconDocument size={13} color={isDark ? "#818cf8" : "#6366f1"} />
+                          <span>Staged File (Sender Mode)</span>
+                        </span>
+                      )
                     </span>
                     <div style={{
-                      fontWeight: 800, fontSize: 16, color: "#1e293b", marginTop: 2,
+                      fontWeight: 800, fontSize: 16, color: isDark ? "#f8fafc" : "#1e293b", marginTop: 2,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>{stagedFileName}</div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
                       {isSenderReady
-                        ? "Receivers can now show closed palm \u270a to download!"
-                        : "Show \ud83d\udd90\ufe0f \u27a1 \u270a (grab) in camera to ready file."}
+                        ? "Receivers can now present closed fist gesture to download."
+                        : "Perform Grab gesture (open palm to fist) in camera view to ready file."}
                     </div>
                   </div>
 
                   <button type="button" onClick={handleClearStagedFile}
                     style={{
-                      padding: "7px 12px", borderRadius: 12, background: "#fee2e2",
-                      color: "#ef4444", fontWeight: 700, fontSize: 12, border: "none", cursor: "pointer",
+                      padding: "7px 14px", borderRadius: 12,
+                      background: isDark ? "rgba(239, 68, 68, 0.2)" : "#fee2e2",
+                      color: isDark ? "#f87171" : "#ef4444",
+                      fontWeight: 700, fontSize: 12, border: "none", cursor: "pointer",
                       flexShrink: 0,
                     }}
                   >
@@ -663,44 +673,64 @@ export default function Home() {
                 {!isSenderReady && (
                   <button type="button" onClick={handleSenderGrab}
                     style={{
-                      padding: "10px 16px", borderRadius: 14, background: "#6366f1",
+                      padding: "10px 18px", borderRadius: 14, background: "linear-gradient(135deg, #6366f1, #4f46e5)",
                       color: "#fff", fontWeight: 700, fontSize: 13, border: "none",
                       cursor: "pointer", alignSelf: "flex-start",
+                      boxShadow: "0 4px 14px rgba(99, 102, 241, 0.35)",
+                      display: "inline-flex", alignItems: "center", gap: 8,
                     }}
                   >
-                    {"Grab & Ready (\ud83d\udd90\ufe0f \u27a1 \u270a)"}
+                    <IconFistGrab size={15} color="#fff" />
+                    <span>Ready File (Grab)</span>
                   </button>
                 )}
-              </div>
+              </LiquidGlassCard>
             )}
 
-            {/* Connected Devices Card */}
-            <div style={{
-              background: "#fff", borderRadius: 24, padding: "20px 22px",
-              border: "1px solid #f1f5f9", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
-              marginBottom: 20,
-            }}>
+            {/* Connected Devices Card with LiquidGlassCard */}
+            <LiquidGlassCard
+              tone={isDark ? "dark" : "clear"}
+              interactive={false}
+              style={{
+                borderRadius: 24,
+                padding: "20px 22px",
+                marginBottom: 20,
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: isDark ? "#f8fafc" : "#1e293b" }}>
                   Connected Devices ({devices.length})
                 </span>
 
                 {!isOtherSender && !stagedFileName && (
-                  <button type="button" onClick={openFileSelector}
+                  <LiquidGlassPill
+                    tone="violet"
+                    interactive
+                    onClick={openFileSelector}
                     style={{
-                      background: "#ede9fe", color: "#6366f1", borderRadius: 14,
-                      padding: "7px 14px", fontWeight: 700, fontSize: 12,
-                      display: "flex", alignItems: "center", gap: 5,
-                      border: "none", cursor: "pointer", whiteSpace: "nowrap",
+                      padding: "7px 14px",
+                      fontWeight: 700,
+                      fontSize: 12,
+                      color: isDark ? "#c7d2fe" : "#6366f1",
+                      whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
                     }}
                   >
-                    {"Select File \u270b \u270b \ud83d\udcc1"}
-                  </button>
+                    <IconDocument size={14} />
+                    <span>Select File</span>
+                  </LiquidGlassPill>
                 )}
 
                 {isOtherSender && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>
-                    {"\ud83d\udd12 "}{activeSender?.senderName} staged file
+                  <span style={{
+                    fontSize: 11, fontWeight: 700,
+                    color: isDark ? "#64748b" : "#94a3b8",
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                  }}>
+                    <IconLock size={12} />
+                    <span>{activeSender?.senderName} staged file</span>
                   </span>
                 )}
               </div>
@@ -711,21 +741,33 @@ export default function Home() {
                   const isThisDeviceSender = activeSender?.senderId === device.id;
                   return (
                     <div key={device.id} style={{
-                      background: isThisDeviceSender ? "#eff6ff" : isMe ? "#f0fdf4" : "#f8fafc",
-                      border: isThisDeviceSender ? "1px solid #bfdbfe" : isMe ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
+                      background: isThisDeviceSender
+                        ? (isDark ? "rgba(59, 130, 246, 0.2)" : "#eff6ff")
+                        : isMe
+                        ? (isDark ? "rgba(34, 197, 94, 0.14)" : "#f0fdf4")
+                        : (isDark ? "rgba(30, 41, 59, 0.6)" : "#f8fafc"),
+                      border: isThisDeviceSender
+                        ? (isDark ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid #bfdbfe")
+                        : isMe
+                        ? (isDark ? "1px solid rgba(34, 197, 94, 0.35)" : "1px solid #bbf7d0")
+                        : (isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0"),
                       borderRadius: 14, padding: "10px 14px",
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
                         <div style={{
                           width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                          background: device.type === "phone" ? "#fef3c7" : "#e0f2fe",
-                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                          background: device.type === "phone"
+                            ? (isDark ? "rgba(245, 158, 11, 0.25)" : "#fef3c7")
+                            : (isDark ? "rgba(56, 189, 248, 0.25)" : "#e0f2fe"),
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: device.type === "phone" ? "#f59e0b" : "#38bdf8",
                         }}>
-                          {device.type === "phone" ? "\ud83d\udcf1" : "\ud83d\udcbb"}
+                          {device.type === "phone" ? <IconPhone size={18} /> : <IconLaptop size={18} />}
                         </div>
                         <span style={{
-                          fontWeight: 700, fontSize: 14, color: "#1e293b",
+                          fontWeight: 700, fontSize: 14,
+                          color: isDark ? "#f8fafc" : "#1e293b",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                         }}>
                           {device.name || (device.type === "phone" ? "Phone 1" : "Laptop 1")}
@@ -753,29 +795,41 @@ export default function Home() {
                   );
                 })}
               </div>
-            </div>
+            </LiquidGlassCard>
 
-            {/* Transfer Progress */}
+            {/* Transfer Progress with LiquidGlassCard */}
             {currentTransfer && currentTransfer.status === "in-progress" && (
-              <div style={{
-                background: "#fff", padding: "14px 18px", borderRadius: 18, marginBottom: 20,
-                boxShadow: "0 6px 20px rgba(0,0,0,0.04)", border: "1px solid #f1f5f9",
-              }}>
+              <LiquidGlassCard
+                tone={isDark ? "dark" : "clear"}
+                interactive={false}
+                style={{
+                  padding: "14px 18px", borderRadius: 18, marginBottom: 20,
+                  color: isDark ? "#f8fafc" : "#1e293b",
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13, fontWeight: 700 }}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                    {currentTransfer.direction === "send" ? "\ud83d\udce4 Sending..." : "\ud83d\udce5 Receiving..."} {currentTransfer.name}
+                  <span style={{
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}>
+                    {currentTransfer.direction === "send" ? (
+                      <IconSendArrow size={14} color="#6366f1" />
+                    ) : (
+                      <IconReceiveArrow size={14} color="#10b981" />
+                    )}
+                    <span>{currentTransfer.direction === "send" ? "Sending" : "Receiving"} {currentTransfer.name}</span>
                   </span>
                   <span style={{ flexShrink: 0, marginLeft: 8 }}>
                     {Math.round((currentTransfer.bytesTransferred / currentTransfer.size) * 100)}%
                   </span>
                 </div>
-                <div style={{ width: "100%", height: 7, background: "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ width: "100%", height: 7, background: isDark ? "#1e293b" : "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
                   <div style={{
                     width: `${(currentTransfer.bytesTransferred / currentTransfer.size) * 100}%`,
                     height: "100%", background: "#6366f1", transition: "width 0.1s ease",
                   }} />
                 </div>
-              </div>
+              </LiquidGlassCard>
             )}
           </div>
 
@@ -811,6 +865,6 @@ export default function Home() {
           onComplete={() => setShowSendCeremony(false)}
         />
       )}
-    </div>
+    </LiquidGlassBackground>
   );
 }

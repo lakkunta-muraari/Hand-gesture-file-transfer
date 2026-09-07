@@ -185,10 +185,10 @@ export default function CameraView({
     none: "rgba(255,255,255,0.6)",
   };
   const gestureLabels: Record<Gesture, string> = {
-    "two-palms": "🖐️🖐️ TWO PALMS",
-    "open-palm": "🖐️ OPEN PALM",
-    fist: "✊ FIST",
-    none: "Show your hand",
+    "two-palms": "TWO PALMS DETECTED",
+    "open-palm": "OPEN PALM DETECTED",
+    fist: "CLOSED FIST / GRAB",
+    none: "Awaiting Gesture",
   };
 
   return (

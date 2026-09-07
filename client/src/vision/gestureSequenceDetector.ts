@@ -6,9 +6,9 @@ export type GestureAction = "grab" | "release" | "open-file-picker" | "none";
  * Detects gesture SEQUENCES from a stream of stable gestures.
  *
  * Sequences:
- *   👐 two-palms (held)      → "open-file-picker"
- *   🖐 open-palm → ✊ fist   → "grab"   (sender sends file)
- *   ✊ fist → 🖐 open-palm   → "release" (receiver downloads file)
+ *   two-palms (held)      → "open-file-picker"
+ *   open-palm -> fist   → "grab"   (sender sends file)
+ *   fist -> open-palm   → "release" (receiver downloads file)
  *
  * Key fixes over original:
  * - two-palms fires on ENTRY (first frame it becomes stable), not on hold.
@@ -72,7 +72,7 @@ export class GestureSequenceDetector {
       const inWindow = timeDiff > 50 && timeDiff <= this.SEQUENCE_WINDOW_MS;
 
       if (inWindow) {
-        // 🖐 → ✊ = GRAB
+        // open-palm -> fist = GRAB
         if (this.prevGesture === "open-palm" && stableGesture === "fist") {
           if (now >= this.cooldowns["grab"]) {
             this.cooldowns["grab"] = now + this.COOLDOWN_MS["grab"];
@@ -83,7 +83,7 @@ export class GestureSequenceDetector {
           }
         }
 
-        // ✊ → 🖐 = RELEASE
+        // fist -> open-palm = RELEASE
         if (this.prevGesture === "fist" && stableGesture === "open-palm") {
           if (now >= this.cooldowns["release"]) {
             this.cooldowns["release"] = now + this.COOLDOWN_MS["release"];

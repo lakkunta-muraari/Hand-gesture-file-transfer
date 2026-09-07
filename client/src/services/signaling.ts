@@ -1,4 +1,4 @@
-﻿import type { DeviceInfo, DeviceType } from "../types/device";
+import type { DeviceInfo, DeviceType } from "../types/device";
 
 export type ServerMessage =
   | { type: "joined"; selfId: string; selfName: string; roomCode: string }
@@ -27,6 +27,10 @@ class SignalingService {
   private resolveUrl(): string {
     const configured = import.meta.env.VITE_SIGNALING_URL as string | undefined;
     if (configured) return configured;
+    if (typeof window !== "undefined" && window.location.port !== "5173") {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${proto}//${window.location.host}`;
+    }
     return `ws://${window.location.hostname}:4000`;
   }
 

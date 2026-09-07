@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { IconSparkle } from "./icons/GesturaIcons";
 
 interface Props {
   onComplete: () => void;
@@ -16,7 +17,8 @@ export default function SendDropEffect({ onComplete, fileName = "File" }: Props)
       <div className="liquid-drop-backdrop" />
 
       <div className="liquid-step-badge">
-        <span>Liquid Drop UI Effect · Sender Departure</span>
+        <IconSparkle size={13} color="#38bdf8" />
+        <span>Fluid Transfer â€¢ Sender Departure</span>
       </div>
 
       <div className="liquid-canvas-container">

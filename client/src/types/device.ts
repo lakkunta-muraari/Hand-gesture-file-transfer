@@ -1,4 +1,4 @@
-﻿export type DeviceType = "phone" | "laptop";
+export type DeviceType = "phone" | "laptop";
 
 export interface DeviceInfo {
   id: string;

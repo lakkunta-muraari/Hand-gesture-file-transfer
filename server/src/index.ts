@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import http from "node:http";
@@ -9,12 +9,32 @@ import type { ClientMessage, DeviceInfo, ServerMessage } from "./signaling/types
 
 const PORT = Number(process.env.PORT) || 4000;
 
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDist = path.resolve(__dirname, "../../client/dist");
+
 const app = express();
 app.use(cors());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path === "/health") {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, "index.html"), (err) => {
+      if (err) next();
+    });
+  });
+}
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });

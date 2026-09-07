@@ -3,6 +3,14 @@ import CameraView from "./CameraView";
 import { GestureSequenceDetector, type GestureAction } from "../vision/gestureSequenceDetector";
 import type { Gesture } from "../vision/gestureDetector";
 import { useTheme } from "../utils/useTheme";
+import { LiquidGlassCard } from "./liquid-glass/LiquidGlass";
+import {
+  IconTwoPalms,
+  IconOpenPalm,
+  IconFistGrab,
+  IconDocument,
+  IconReceiveArrow,
+} from "./icons/GesturaIcons";
 
 interface Props {
   onActionDetected: (action: GestureAction) => void;
@@ -29,23 +37,24 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
   }, [onActionDetected, onRawGesture]);
 
   return (
-    <div
+    <LiquidGlassCard
+      tone={isDark ? "dark" : "clear"}
+      interactive={false}
       className="hud-card-container"
       style={{
-        background: isDark ? "#111827" : "#ffffff",
-        borderColor: isDark ? "#1f2937" : "#eef2f6",
-        boxShadow: isDark ? "0 8px 30px rgba(0, 0, 0, 0.45)" : "0 8px 30px rgba(0, 0, 0, 0.06)",
+        padding: 16,
+        borderRadius: 24,
       }}
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#6366f1">
             <rect x="4" y="8" width="3" height="8" rx="1.5" />
             <rect x="10.5" y="4" width="3" height="16" rx="1.5" />
             <rect x="17" y="7" width="3" height="10" rx="1.5" />
           </svg>
-          <span style={{ fontSize: 12, fontWeight: 800, color: isDark ? "#f8fafc" : "#334155", letterSpacing: 0.5 }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color: isDark ? "#f8fafc" : "#334155", letterSpacing: 0.8 }}>
             GESTURE HUD
           </span>
         </div>
@@ -53,7 +62,7 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
           type="button"
           onClick={() => setMinimized((v) => !v)}
           style={{
-            background: "none", border: "none", color: isDark ? "#94a3b8" : "#94a3b8",
+            background: "none", border: "none", color: "#94a3b8",
             fontSize: 16, fontWeight: 700, cursor: "pointer", padding: "0 4px",
           }}
           aria-label="Toggle HUD"
@@ -108,13 +117,13 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
               </svg>
 
               <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, marginTop: 6 }}>
-                {activeGesture === "none" ? "Show your hand"
-                  : activeGesture === "two-palms" ? "Two Palms"
-                  : activeGesture === "open-palm" ? "Open Palm"
-                  : "Fist"}
+                {activeGesture === "none" ? "Present hand"
+                  : activeGesture === "two-palms" ? "Two Palms Active"
+                  : activeGesture === "open-palm" ? "Open Palm Active"
+                  : "Fist Detected"}
               </div>
               <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 1 }}>
-                {activeGesture === "none" ? "Show hand" : "Detected"}
+                {activeGesture === "none" ? "Optical Tracker" : "Locked On"}
               </div>
             </div>
           </div>
@@ -124,46 +133,87 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
             <div
               onClick={() => { if (lastAction === "open-file-picker") onActionDetected("open-file-picker"); }}
               style={{
-                marginTop: 8, padding: "6px 12px", borderRadius: 12,
-                textAlign: "center", fontWeight: 700, fontSize: 11,
+                marginTop: 8, padding: "7px 12px", borderRadius: 12,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                fontWeight: 700, fontSize: 11,
                 background: lastAction === "open-file-picker" ? "#6c5ce7" : lastAction === "grab" ? "#f59e0b" : "#10b981",
                 color: "#fff",
                 cursor: lastAction === "open-file-picker" ? "pointer" : "default",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
               }}
             >
-              {lastAction === "open-file-picker" && "\ud83d\udd90\ufe0f\ud83d\udd90\ufe0f OPENING PICKER (TAP)"}
-              {lastAction === "grab" && "\u270a GRABBED - READY TO SEND!"}
-              {lastAction === "release" && "\ud83d\udd90\ufe0f RECEIVING FILE!"}
+              {lastAction === "open-file-picker" && (
+                <>
+                  <IconTwoPalms size={14} color="#fff" />
+                  <span>OPEN FILE PICKER (CLICK)</span>
+                </>
+              )}
+              {lastAction === "grab" && (
+                <>
+                  <IconFistGrab size={14} color="#fff" />
+                  <span>GRABBED • READY TO SEND</span>
+                </>
+              )}
+              {lastAction === "release" && (
+                <>
+                  <IconReceiveArrow size={14} color="#fff" />
+                  <span>RECEIVING FILE DATA</span>
+                </>
+              )}
             </div>
           )}
 
-          {/* Bottom helper pill */}
+          {/* Bottom Classy Gesture Reference Guide */}
           <div style={{
-            background: isDark ? "rgba(245, 158, 11, 0.16)" : "#fef3c7",
-            border: isDark ? "1px solid rgba(245, 158, 11, 0.3)" : "none",
+            background: isDark ? "rgba(30, 41, 59, 0.65)" : "rgba(241, 245, 249, 0.8)",
+            border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
             borderRadius: 14, padding: "10px 12px",
             marginTop: 12,
-            color: isDark ? "#fde68a" : "#78350f",
+            color: isDark ? "#cbd5e1" : "#475569",
             fontSize: 11, fontWeight: 600,
-            lineHeight: 1.5, textAlign: "center",
+            display: "flex", flexDirection: "column", gap: 6,
           }}>
-            <div>{"\u270b \u270b Two palms = pick  |  \ud83d\udcc1"}</div>
-            <div style={{ marginTop: 2 }}>{"\u270b = send  |  \u270a = receive"}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <IconTwoPalms size={13} color="#6366f1" />
+                <span>Two Palms</span>
+              </span>
+              <span style={{ color: isDark ? "#94a3b8" : "#64748b", fontSize: 10, fontWeight: 700 }}>Pick File</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <IconOpenPalm size={13} color="#10b981" />
+                <span>Open Palm</span>
+              </span>
+              <span style={{ color: isDark ? "#94a3b8" : "#64748b", fontSize: 10, fontWeight: 700 }}>Ready / Share</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <IconFistGrab size={13} color="#f59e0b" />
+                <span>Closed Fist</span>
+              </span>
+              <span style={{ color: isDark ? "#94a3b8" : "#64748b", fontSize: 10, fontWeight: 700 }}>Receive / Accept</span>
+            </div>
           </div>
 
           {stagedFileName && (
             <div style={{
-              marginTop: 8, padding: "6px 10px", borderRadius: 10,
-              background: isDark ? "#1e293b" : "#f1f5f9",
+              marginTop: 8, padding: "7px 10px", borderRadius: 10,
+              background: isDark ? "rgba(30, 41, 59, 0.8)" : "#f1f5f9",
+              border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
               color: isDark ? "#e2e8f0" : "#334155",
               fontSize: 11, fontWeight: 600,
-              textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            }}>
-              {"\ud83d\udcc1 "}{stagedFileName}
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}
+            title={stagedFileName}
+            >
+              <IconDocument size={13} color="#6366f1" />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{stagedFileName}</span>
             </div>
           )}
         </div>
       )}
-    </div>
+    </LiquidGlassCard>
   );
 }
