@@ -354,61 +354,61 @@ export default function Home() {
         }}
       />
 
-      {/* Two Palms Instant Tap Prompt Banner for Mobile */}
+      {/* Two Palms Native Trigger Banner */}
       {showTwoPalmsPrompt && !stagedFileName && (
-        <div
-          onClick={openFileSelector}
+        <label
+          htmlFor="gestura-file-input"
           style={{
             position: "fixed",
-            top: 20,
+            top: 24,
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 9999,
             width: "calc(100% - 32px)",
-            maxWidth: 420,
-            background: "linear-gradient(135deg, #6c5ce7, #a29bfe)",
+            maxWidth: 440,
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
             color: "#ffffff",
             padding: "14px 18px",
             borderRadius: 20,
-            boxShadow: "0 12px 30px rgba(108, 92, 231, 0.45)",
+            boxShadow: "0 14px 36px rgba(99, 102, 241, 0.55)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            animation: "pulse 1.8s infinite ease-in-out",
+            animation: "pulse 1.6s infinite ease-in-out",
+            border: "1.5px solid rgba(255, 255, 255, 0.4)",
+            userSelect: "none",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: "rgba(255, 255, 255, 0.22)",
+              width: 42, height: 42, borderRadius: 14,
+              background: "rgba(255, 255, 255, 0.25)",
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
             }}>
-              <IconTwoPalms size={22} color="#ffffff" />
+              <IconTwoPalms size={24} color="#ffffff" />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: -0.2 }}>Two Palms Detected</div>
-              <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>Tap here to browse and select file</div>
+              <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: -0.2 }}>Two Palms Detected!</div>
+              <div style={{ fontSize: 12, opacity: 0.92, marginTop: 2 }}>Tap anywhere on this banner to choose file</div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setShowTwoPalmsPrompt(false); }}
+          <span
             style={{
-              background: "rgba(255,255,255,0.2)", border: "none", color: "#fff",
-              borderRadius: "50%", width: 26, height: 26,
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              padding: 0,
+              padding: "8px 14px",
+              background: "rgba(255, 255, 255, 0.28)",
+              borderRadius: 12,
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
             }}
-            aria-label="Close alert"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+            Browse
+          </span>
+        </label>
       )}
 
       {/* Floating Toast Notification */}
