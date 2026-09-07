@@ -48,6 +48,17 @@ export default function Home() {
   const stagedFileRef = useRef<File | null>(null);
 
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
+  const devicesRef = useRef<DeviceInfo[]>([]);
+  devicesRef.current = devices;
+
+  // Clear stale transfer/staged states whenever Home mounts fresh
+  useEffect(() => {
+    fileTransfer.stageFile(null);
+    stagedFileRef.current = null;
+    setStagedFileName(null);
+    setIsSenderReady(false);
+    setActiveSender(null);
+  }, []);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
   const [isSenderReady, setIsSenderReady] = useState(false);
@@ -175,8 +186,15 @@ export default function Home() {
   }, [isSenderReady, showToast]);
 
   const openFileSelector = useCallback(() => {
-    if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
-      showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until current transfer clears.`, 4000);
+    const sender = activeSenderRef.current;
+    const isOtherActiveSender = !!(
+      sender &&
+      sender.senderId !== signaling.selfId &&
+      devicesRef.current.some((d) => d.id === sender.senderId)
+    );
+
+    if (isOtherActiveSender && sender) {
+      showToast(`${sender.senderName} has already selected a file. Please wait until current transfer clears.`, 4000);
       return;
     }
     if (fileInputRef.current) {
@@ -190,8 +208,14 @@ export default function Home() {
 
     setShowTwoPalmsPrompt(false);
 
-    if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
-      showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until current transfer clears.`, 4000);
+    const currentSender = activeSenderRef.current;
+    const isOtherActive = !!(
+      currentSender &&
+      currentSender.senderId !== signaling.selfId &&
+      devicesRef.current.some((d) => d.id === currentSender.senderId)
+    );
+    if (isOtherActive && currentSender) {
+      showToast(`${currentSender.senderName} has already selected a file. Please wait until current transfer clears.`, 4000);
       return;
     }
 
@@ -264,8 +288,15 @@ export default function Home() {
     console.log(`[Home] Gesture action received: ${action}`);
 
     if (action === "open-file-picker") {
-      if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
-        showToast(`${activeSenderRef.current.senderName} has already selected a file. Please wait until cleared.`, 4000);
+      const currentSender = activeSenderRef.current;
+      const isOtherActive = !!(
+        currentSender &&
+        currentSender.senderId !== signaling.selfId &&
+        devicesRef.current.some((d) => d.id === currentSender.senderId)
+      );
+
+      if (isOtherActive && currentSender) {
+        showToast(`${currentSender.senderName} has already selected a file. Please wait until cleared.`, 4000);
       } else {
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           try { navigator.vibrate([40, 30, 40]); } catch (_) {}
