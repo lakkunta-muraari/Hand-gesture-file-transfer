@@ -36,7 +36,17 @@ interface ActiveSenderState {
   senderName: string;
   fileName: string;
   fileSize?: number;
+  fileCount?: number;
+  fileNames?: string[];
   readyToSend: boolean;
+}
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 export default function Home() {
@@ -45,7 +55,9 @@ export default function Home() {
   const { isDark, toggleTheme } = useTheme();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const stagedFileRef = useRef<File | null>(null);
+  const stagedFilesRef = useRef<File[]>([]);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const [stagedTotalSize, setStagedTotalSize] = useState<number>(0);
 
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const devicesRef = useRef<DeviceInfo[]>([]);
@@ -53,9 +65,11 @@ export default function Home() {
 
   // Clear stale transfer/staged states whenever Home mounts fresh
   useEffect(() => {
-    fileTransfer.stageFile(null);
-    stagedFileRef.current = null;
+    fileTransfer.stageFiles([]);
+    stagedFilesRef.current = [];
+    setStagedFiles([]);
     setStagedFileName(null);
+    setStagedTotalSize(0);
     setIsSenderReady(false);
     setActiveSender(null);
   }, []);
@@ -112,13 +126,21 @@ export default function Home() {
         }
       }
 
-      if (stagedFileRef.current && signaling.selfId) {
+      if (stagedFilesRef.current.length > 0 && signaling.selfId) {
+        const count = stagedFilesRef.current.length;
+        const totalSize = stagedFilesRef.current.reduce((acc, f) => acc + f.size, 0);
+        const summary = count === 1
+          ? stagedFilesRef.current[0].name
+          : `${count} files (${stagedFilesRef.current.slice(0, 3).map((f) => f.name).join(", ")}${count > 3 ? "..." : ""})`;
+
         signaling.sendBroadcast({
           kind: isSenderReady ? "sender-ready" : "file-staged",
           senderId: signaling.selfId,
           senderName: signaling.selfName || "Peer",
-          fileName: stagedFileRef.current.name,
-          fileSize: stagedFileRef.current.size,
+          fileName: summary,
+          fileSize: totalSize,
+          fileCount: count,
+          fileNames: stagedFilesRef.current.map((f) => f.name),
           readyToSend: isSenderReady,
         });
       }
@@ -135,6 +157,8 @@ export default function Home() {
             senderName: data.senderName || "A peer",
             fileName: data.fileName,
             fileSize: data.fileSize,
+            fileCount: data.fileCount || 1,
+            fileNames: data.fileNames,
             readyToSend: false,
           });
           showToast(`${data.senderName || "A peer"} staged "${data.fileName}". Awaiting grab gesture...`, 4000);
@@ -146,18 +170,24 @@ export default function Home() {
             senderName: data.senderName || "A peer",
             fileName: data.fileName,
             fileSize: data.fileSize,
+            fileCount: data.fileCount || 1,
+            fileNames: data.fileNames,
             readyToSend: true,
           });
           showToast(`${data.senderName || "A peer"} is ready to share "${data.fileName}". Present closed fist to download.`, 6000);
         }
       } else if (data.kind === "file-cleared") {
         setActiveSender(null);
-        showToast("File cleared. Any device can now select a file.", 3000);
+        showToast("Files cleared. Any device can now select files.", 3000);
       } else if (data.kind === "receiver-ready") {
-        if (stagedFileRef.current && isSenderReady) {
+        if (stagedFilesRef.current.length > 0 && isSenderReady) {
           const targetPeerId = data.receiverId;
-          showToast(`Transferring "${stagedFileRef.current.name}" to ${data.receiverName}...`, 3000);
-          fileTransfer.sendFile(targetPeerId, stagedFileRef.current).catch((err) => {
+          const filesToSend = [...stagedFilesRef.current];
+          const count = filesToSend.length;
+          showToast(`Transferring ${count} file${count > 1 ? "s" : ""} to ${data.receiverName}...`, 3000);
+          fileTransfer.sendFiles(targetPeerId, filesToSend, (file, idx, total) => {
+            showToast(`Sent ${file.name} (${idx}/${total})`, 2500);
+          }).catch((err) => {
             console.error("Transfer error:", err);
             showToast(`Transfer failed: ${err.message}`);
           });
@@ -203,8 +233,10 @@ export default function Home() {
     }
   }, [showToast]);
 
-  const handleFileSelected = useCallback((file: File | null) => {
-    if (!file) return;
+  const handleFilesSelected = useCallback((files: File[] | FileList | null) => {
+    if (!files) return;
+    const fileList = Array.isArray(files) ? files : Array.from(files);
+    if (fileList.length === 0) return;
 
     setShowTwoPalmsPrompt(false);
 
@@ -219,16 +251,27 @@ export default function Home() {
       return;
     }
 
-    stagedFileRef.current = file;
-    fileTransfer.stageFile(file);
-    setStagedFileName(file.name);
+    stagedFilesRef.current = fileList;
+    setStagedFiles(fileList);
+    fileTransfer.stageFiles(fileList);
+
+    const count = fileList.length;
+    const totalBytes = fileList.reduce((acc, f) => acc + f.size, 0);
+    const summaryName = count === 1
+      ? fileList[0].name
+      : `${count} files (${fileList.slice(0, 3).map((f) => f.name).join(", ")}${count > 3 ? "..." : ""})`;
+
+    setStagedFileName(summaryName);
+    setStagedTotalSize(totalBytes);
     setIsSenderReady(false);
 
     const senderState: ActiveSenderState = {
       senderId: signaling.selfId || "",
       senderName: signaling.selfName || "Peer",
-      fileName: file.name,
-      fileSize: file.size,
+      fileName: summaryName,
+      fileSize: totalBytes,
+      fileCount: count,
+      fileNames: fileList.map((f) => f.name),
       readyToSend: false,
     };
     setActiveSender(senderState);
@@ -238,13 +281,20 @@ export default function Home() {
       ...senderState,
     });
 
-    showToast(`"${file.name}" staged. Perform Grab gesture in camera view to ready file.`, 5000);
+    showToast(
+      count === 1
+        ? `"${fileList[0].name}" staged. Perform Grab gesture in camera view to ready file.`
+        : `${count} files staged (${formatFileSize(totalBytes)}). Perform Grab gesture to ready files.`,
+      5000
+    );
   }, [showToast]);
 
   const handleClearStagedFile = useCallback(() => {
-    stagedFileRef.current = null;
-    fileTransfer.stageFile(null);
+    stagedFilesRef.current = [];
+    setStagedFiles([]);
+    fileTransfer.stageFiles([]);
     setStagedFileName(null);
+    setStagedTotalSize(0);
     setIsSenderReady(false);
     setActiveSender(null);
     setShowTwoPalmsPrompt(false);
@@ -254,24 +304,32 @@ export default function Home() {
       senderId: signaling.selfId,
     });
 
-    showToast("Staged file cleared. All devices reset.", 2500);
+    showToast("Staged files cleared. All devices reset.", 2500);
   }, [showToast]);
 
   const handleSenderGrab = useCallback(() => {
-    const file = stagedFileRef.current;
-    if (!file) {
-      showToast("No file staged. Show Two Palms gesture to pick a file first.");
+    const files = stagedFilesRef.current;
+    if (!files || files.length === 0) {
+      showToast("No files staged. Show Two Palms gesture to pick files first.");
       return;
     }
 
     setIsSenderReady(true);
     setShowSendCeremony(true);
 
+    const count = files.length;
+    const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+    const summaryName = count === 1
+      ? files[0].name
+      : `${count} files (${files.slice(0, 3).map((f) => f.name).join(", ")}${count > 3 ? "..." : ""})`;
+
     const senderState: ActiveSenderState = {
       senderId: signaling.selfId || "",
       senderName: signaling.selfName || "Peer",
-      fileName: file.name,
-      fileSize: file.size,
+      fileName: summaryName,
+      fileSize: totalBytes,
+      fileCount: count,
+      fileNames: files.map((f) => f.name),
       readyToSend: true,
     };
     setActiveSender(senderState);
@@ -281,7 +339,12 @@ export default function Home() {
       ...senderState,
     });
 
-    showToast(`File ready. Sharing "${file.name}". Receivers can present closed fist to download.`, 5000);
+    showToast(
+      count === 1
+        ? `File ready. Sharing "${files[0].name}". Receivers can present closed fist to download.`
+        : `${count} files ready (${formatFileSize(totalBytes)}). Receivers can present closed fist to download.`,
+      5000
+    );
   }, [showToast]);
 
   const handleGestureAction = useCallback((action: GestureAction) => {
@@ -308,7 +371,7 @@ export default function Home() {
         showToast("Two palms detected — tap the purple \"OPEN FILE PICKER\" button in the Gesture HUD ", 5000);
       }
     } else if (action === "grab") {
-      if (stagedFileRef.current && !isSenderReady) {
+      if (stagedFilesRef.current.length > 0 && !isSenderReady) {
         handleSenderGrab();
       }
     } else if (action === "release") {
@@ -338,6 +401,7 @@ export default function Home() {
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         id="gestura-file-input"
         style={{
           position: "fixed",
@@ -349,8 +413,8 @@ export default function Home() {
           pointerEvents: "none",
         }}
         onChange={(e) => {
-          const file = e.target.files?.[0] || null;
-          handleFileSelected(file);
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          handleFilesSelected(files);
         }}
       />
 
@@ -691,7 +755,25 @@ export default function Home() {
                     <div style={{
                       fontWeight: 800, fontSize: 16, color: isDark ? "#f8fafc" : "#1e293b", marginTop: 2,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>{stagedFileName}</div>
+                    }}>
+                      {stagedFileName} {stagedTotalSize > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#94a3b8" : "#64748b" }}>({formatFileSize(stagedTotalSize)})</span>}
+                    </div>
+                    {stagedFiles.length > 1 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 110, overflowY: "auto" }}>
+                        {stagedFiles.map((f, i) => (
+                          <span key={i} style={{
+                            padding: "3px 8px", borderRadius: 8,
+                            background: isDark ? "rgba(255,255,255,0.07)" : "rgba(99,102,241,0.08)",
+                            fontSize: 11, fontWeight: 600, color: isDark ? "#cbd5e1" : "#4f46e5",
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                          }}>
+                            <IconDocument size={11} />
+                            <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                            <span style={{ opacity: 0.7, fontSize: 10 }}>({formatFileSize(f.size)})</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
                       {isSenderReady
                         ? "Receivers can now present closed fist gesture to download."

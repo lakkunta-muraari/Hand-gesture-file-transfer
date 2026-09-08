@@ -76,13 +76,37 @@ class FileTransferService {
     });
   }
 
+  private _stagedFiles: File[] = [];
+
   stageFile(file: File | null): void {
     this._stagedFile = file;
+    this._stagedFiles = file ? [file] : [];
     console.log(`[fileTransfer] Staged file: ${file ? file.name : "none"}`);
+  }
+
+  stageFiles(files: File[]): void {
+    this._stagedFiles = files;
+    this._stagedFile = files[0] || null;
+    console.log(`[fileTransfer] Staged ${files.length} file(s)`);
   }
 
   getStagedFile(): File | null {
     return this._stagedFile;
+  }
+
+  getStagedFiles(): File[] {
+    return this._stagedFiles;
+  }
+
+  async sendFiles(
+    deviceId: string,
+    files: File[],
+    onEachComplete?: (file: File, index: number, total: number) => void
+  ): Promise<void> {
+    for (let i = 0; i < files.length; i++) {
+      await this.sendFile(deviceId, files[i]);
+      onEachComplete?.(files[i], i + 1, files.length);
+    }
   }
 
   setAutoAccept(enabled: boolean): void {
