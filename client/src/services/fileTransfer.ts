@@ -1,10 +1,10 @@
 import { webrtc } from "./webrtc";
 import { saveChunkToIDB, assembleBlobFromIDB, clearTransferChunksFromIDB } from "./indexedDBStorage";
 
-// 16 KB is the universal safe MTU chunk size for mobile WebRTC SCTP data channels
-const CHUNK_SIZE = 16 * 1024;
-// 64 KB buffer limit to prevent mobile browser buffer overflows
-const MAX_BUFFERED_AMOUNT = 64 * 1024;
+// 64 KB optimal chunk size for high-throughput WebRTC data channels
+const CHUNK_SIZE = 64 * 1024;
+// 1 MB pipeline buffer to maximize throughput over Wi-Fi without stalling
+const MAX_BUFFERED_AMOUNT = 1024 * 1024;
 const ACCEPT_TIMEOUT_MS = 60_000;
 
 type ControlMessage =
@@ -120,8 +120,19 @@ class FileTransferService {
     };
   }
 
+  private lastEmitTimes = new Map<string, number>();
+
   private emit(t: TransferProgress): void {
     this.progressListeners.forEach((cb) => cb(t));
+  }
+
+  private emitThrottled(t: TransferProgress, force = false): void {
+    const now = Date.now();
+    const last = this.lastEmitTimes.get(t.transferId) || 0;
+    if (force || t.status !== "in-progress" || now - last >= 80) {
+      this.lastEmitTimes.set(t.transferId, now);
+      this.emit(t);
+    }
   }
 
   async sendFile(deviceId: string, file: File): Promise<void> {
@@ -218,7 +229,7 @@ class FileTransferService {
       }
 
       offset += slice.size;
-      this.emit({ ...baseProgress, bytesTransferred: offset, status: "in-progress" });
+      this.emitThrottled({ ...baseProgress, bytesTransferred: offset, status: "in-progress" });
     }
 
     webrtc.send(deviceId, JSON.stringify({ kind: "file-complete", transferId } satisfies ControlMessage));
@@ -236,7 +247,7 @@ class FileTransferService {
 
     this.pendingOffers.delete(deviceId);
 
-    const useIndexedDB = pending.meta.size > 200 * 1024 * 1024;
+    const useIndexedDB = pending.meta.size > 1500 * 1024 * 1024; // Use memory for files <= 1.5 GB for max speed
     this.incoming.set(deviceId, {
       meta: pending.meta,
       chunkCount: 0,
@@ -283,7 +294,7 @@ class FileTransferService {
 
   private async waitForBufferSpace(deviceId: string): Promise<void> {
     while (webrtc.bufferedAmount(deviceId) > MAX_BUFFERED_AMOUNT) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 4));
     }
   }
 
@@ -438,7 +449,7 @@ class FileTransferService {
       state.inMemoryChunks[chunkIndex] = new Uint8Array(buffer);
     }
 
-    this.emit({
+    this.emitThrottled({
       transferId: state.meta.transferId,
       deviceId,
       direction: "receive",
