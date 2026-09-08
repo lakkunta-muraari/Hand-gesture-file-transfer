@@ -21,7 +21,7 @@ interface Props {
 export default function FloatingGestureHUD({ onActionDetected, onRawGesture, stagedFileName }: Props) {
   const { isDark } = useTheme();
   const [minimized, setMinimized] = useState(false);
-  const [cameraStatus, setCameraStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [cameraStatus, setCameraStatus] = useState<"idle" | "loading" | "ready" | "error">("loading");
   const [activeGesture, setActiveGesture] = useState<Gesture>("none");
   const [lastAction, setLastAction] = useState<GestureAction>("none");
   const sequenceDetectorRef = useRef(new GestureSequenceDetector());
@@ -125,21 +125,21 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
                 {cameraStatus === "loading"
                   ? "Loading Vision AI..."
                   : cameraStatus === "error"
-                  ? "Camera Error"
-                  : activeGesture === "none"
-                  ? "Present hand"
-                  : activeGesture === "two-palms"
-                  ? "Two Palms Active"
-                  : activeGesture === "open-palm"
-                  ? "Open Palm Active"
-                  : "Fist Detected"}
+                    ? "Camera Error"
+                    : activeGesture === "none"
+                      ? "Present hand"
+                      : activeGesture === "two-palms"
+                        ? "Two Palms Active"
+                        : activeGesture === "open-palm"
+                          ? "Open Palm Active"
+                          : "Fist Detected"}
               </div>
               <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 1 }}>
                 {cameraStatus === "loading"
                   ? "Downloading neural model"
                   : activeGesture === "none"
-                  ? "Optical Tracker Ready"
-                  : "Locked On"}
+                    ? "Optical Tracker Ready"
+                    : "Locked On"}
               </div>
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}
-            title={stagedFileName}
+              title={stagedFileName}
             >
               <IconDocument size={13} color="#6366f1" />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{stagedFileName}</span>

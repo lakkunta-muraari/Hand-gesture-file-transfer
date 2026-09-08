@@ -299,13 +299,13 @@ export default function Home() {
         showToast(`${currentSender.senderName} has already selected a file. Please wait until cleared.`, 4000);
       } else {
         if (typeof navigator !== "undefined" && navigator.vibrate) {
-          try { navigator.vibrate([40, 30, 40]); } catch (_) {}
+          try { navigator.vibrate([40, 30, 40]); } catch (_) { }
         }
         openFileSelector();
         setShowTwoPalmsPrompt(true);
         if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
         promptTimerRef.current = setTimeout(() => setShowTwoPalmsPrompt(false), 8000);
-        showToast("Two Palms gesture detected! Select a file to share.", 3000);
+        showToast("Two palms detected — tap the purple \"OPEN FILE PICKER\" button in the Gesture HUD ", 5000);
       }
     } else if (action === "grab") {
       if (stagedFileRef.current && !isSenderReady) {
@@ -677,15 +677,15 @@ export default function Home() {
                       color: isSenderReady ? "#10b981" : (isDark ? "#818cf8" : "#6366f1"), textTransform: "uppercase",
                     }}>
                       isSenderReady ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <IconCheckCircle size={13} color="#10b981" />
-                          <span>Ready to Send (Grabbed)</span>
-                        </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <IconCheckCircle size={13} color="#10b981" />
+                        <span>Ready to Send (Grabbed)</span>
+                      </span>
                       ) : (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <IconDocument size={13} color={isDark ? "#818cf8" : "#6366f1"} />
-                          <span>Staged File (Sender Mode)</span>
-                        </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <IconDocument size={13} color={isDark ? "#818cf8" : "#6366f1"} />
+                        <span>Staged File (Sender Mode)</span>
+                      </span>
                       )
                     </span>
                     <div style={{
@@ -786,13 +786,13 @@ export default function Home() {
                       background: isThisDeviceSender
                         ? (isDark ? "rgba(59, 130, 246, 0.2)" : "#eff6ff")
                         : isMe
-                        ? (isDark ? "rgba(34, 197, 94, 0.14)" : "#f0fdf4")
-                        : (isDark ? "rgba(30, 41, 59, 0.6)" : "#f8fafc"),
+                          ? (isDark ? "rgba(34, 197, 94, 0.14)" : "#f0fdf4")
+                          : (isDark ? "rgba(30, 41, 59, 0.6)" : "#f8fafc"),
                       border: isThisDeviceSender
                         ? (isDark ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid #bfdbfe")
                         : isMe
-                        ? (isDark ? "1px solid rgba(34, 197, 94, 0.35)" : "1px solid #bbf7d0")
-                        : (isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0"),
+                          ? (isDark ? "1px solid rgba(34, 197, 94, 0.35)" : "1px solid #bbf7d0")
+                          : (isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0"),
                       borderRadius: 14, padding: "10px 14px",
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                     }}>
