@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import CameraView from "./CameraView";
+import CameraView, { type HandTrackingData } from "./CameraView";
 import { GestureSequenceDetector, type GestureAction } from "../vision/gestureSequenceDetector";
 import type { Gesture } from "../vision/gestureDetector";
 import { useTheme } from "../utils/useTheme";

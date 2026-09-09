@@ -206,11 +206,15 @@ export default function CameraView({
                 };
 
                 const indexExt = d(indexTip, wrist) > d(indexPip, wrist) * 1.04;
-                const middleFolded = d(middleTip, wrist) <= d(middlePip, wrist) * 1.25;
+                const middleExt = d(middleTip, wrist) > d(middlePip, wrist) * 1.04;
                 const ringFolded = d(ringTip, wrist) <= d(ringPip, wrist) * 1.25;
                 const pinkyFolded = d(pinkyTip, wrist) <= d(pinkyPip, wrist) * 1.25;
+                const middleFolded = d(middleTip, wrist) <= d(middlePip, wrist) * 1.25;
 
-                // Index finger extended while middle & other fingers curled = clear pointing gesture
+                // 2-Finger Scroll: Index + Middle extended, ring + pinky folded
+                const isTwoFingerScroll = indexExt && middleExt && (ringFolded || pinkyFolded);
+
+                // 1-Finger Pointing: Index extended, middle folded
                 const isPointing = indexExt && middleFolded && (ringFolded || pinkyFolded);
                 const pointerX = 1.0 - indexTip.x;
                 const pointerY = indexTip.y;
@@ -221,6 +225,7 @@ export default function CameraView({
                   pointerX,
                   pointerY,
                   isPointing,
+                  isTwoFingerScroll,
                 });
               } else {
                 onHandPositionRef.current?.(null);
