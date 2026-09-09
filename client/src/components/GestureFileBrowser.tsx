@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { HandTrackingData } from "./CameraView";
 import { useTheme } from "../utils/useTheme";
 
@@ -31,11 +31,11 @@ interface SectionFolder {
 }
 
 const SECTIONS: SectionFolder[] = [
-  { id: "downloads", name: "Downloads", icon: "📥", path: "Downloads" },
-  { id: "documents", name: "Documents", icon: "📄", path: "Documents" },
-  { id: "pictures", name: "Pictures", icon: "🖼️", path: "Pictures" },
-  { id: "videos", name: "Videos", icon: "🎥", path: "Videos" },
-  { id: "desktop", name: "Desktop", icon: "🖥️", path: "Desktop" },
+  { id: "downloads", name: "Downloads", icon: "DL", path: "Downloads" },
+  { id: "documents", name: "Documents", icon: "DC", path: "Documents" },
+  { id: "pictures", name: "Pictures", icon: "IMG", path: "Pictures" },
+  { id: "videos", name: "Videos", icon: "VID", path: "Videos" },
+  { id: "desktop", name: "Desktop", icon: "DSK", path: "Desktop" },
 ];
 
 const FOLDER_PRESETS: Record<string, BrowserFileItem[]> = {
@@ -319,7 +319,7 @@ export default function GestureFileBrowser({
 
   // Direct grab action: points to file and grabs it directly into sender hand!
   const handleDirectGrab = useCallback((item: BrowserFileItem) => {
-    setGrabbedNotice(`💧 Grabbed "${item.name}"! Sender water effect active. Show Two Closed Palms when finished to clear & close.`);
+    setGrabbedNotice(`File grabbed: "${item.name}". Show Two Closed Palms to clear and close.`);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       try { navigator.vibrate([70, 40, 70]); } catch (_) {}
     }
@@ -372,8 +372,8 @@ export default function GestureFileBrowser({
     });
   }, []);
 
-  // Process 1-Finger Pointing & Direct Fist Grab
-  // IMPORTANT: Only scroll when isPointing===true (1 finger only, NOT open palm!)
+  // Process Gesture Actions & 2-Finger Scroll
+  // 2-finger scroll = index + middle extended, ring + pinky folded
   useEffect(() => {
     if (!isOpen) return;
 
@@ -406,29 +406,30 @@ export default function GestureFileBrowser({
       return;
     }
 
-    // ── 4. 1-FINGER VERTICAL SCROLLING ON FILES LIST ──
-    const isPointing = handPosition?.isPointing === true;
+    // ── 4. TWO-FINGER VERTICAL SCROLLING ON FILES LIST ──
+    // Use isTwoFingerScroll (index + middle extended, ring + pinky folded)
+    const isTwoFingerScroll = handPosition?.isTwoFingerScroll === true;
     const py = handPosition?.pointerY ?? handPosition?.y;
 
-    if (isPointing && py !== undefined && py !== null) {
+    if (isTwoFingerScroll && py !== undefined && py !== null) {
       // Natural, intuitive vertical zones:
-      // Finger in upper region (py < 0.45) -> scroll UP
-      // Finger in lower region (py > 0.55) -> scroll DOWN
-      // Middle region -> pointing at highlighted file
+      // Hand in upper region (py < 0.45) -> scroll UP
+      // Hand in lower region (py > 0.55) -> scroll DOWN
+      // Middle region -> hovering / idle
       if (py < 0.45) {
         setScrollDirection("up");
-        if (now - lastScrollTimeRef.current > 240) {
+        if (now - lastScrollTimeRef.current > 220) {
           lastScrollTimeRef.current = now;
           setActiveFileIndex((prev) => Math.max(0, prev - 1));
         }
       } else if (py > 0.55) {
         setScrollDirection("down");
-        if (now - lastScrollTimeRef.current > 240) {
+        if (now - lastScrollTimeRef.current > 220) {
           lastScrollTimeRef.current = now;
           setActiveFileIndex((prev) => Math.min(currentFiles.length - 1, prev + 1));
         }
       } else {
-        setScrollDirection("pointing");
+        setScrollDirection("idle");
       }
     } else {
       setScrollDirection("idle");
@@ -599,12 +600,12 @@ export default function GestureFileBrowser({
             </span>
             <span>
               {currentGesture === "fist" && "FIST DETECTED: GRABBING POINTED FILE TO SEND!"}
-              {currentGesture === "open-palm" && "OPEN PALM DETECTED (not scrolling) — Show 1 finger to scroll"}
+              {currentGesture === "open-palm" && "OPEN PALM: Show 2 fingers (index+middle) to scroll"}
               {currentGesture === "two-closed-palms" && "TWO CLOSED PALMS DETECTED: CLOSING FILE PICKER..."}
-              {currentGesture === "none" && scrollDirection === "up" && "☝️ 1 FINGER UP: SCROLLING UP ▲"}
-              {currentGesture === "none" && scrollDirection === "down" && "👇 1 FINGER DOWN: SCROLLING DOWN ▼"}
+              {currentGesture === "none" && scrollDirection === "up" && "2 FINGERS UP: SCROLLING UP"}
+              {currentGesture === "none" && scrollDirection === "down" && "2 FINGERS DOWN: SCROLLING DOWN"}
               {currentGesture === "none" && scrollDirection === "pointing" && `POINTED AT: "${currentFiles[activeFileIndex]?.name || "File"}" — Make a FIST to GRAB!`}
-              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll UP/DOWN • FIST to Grab • TWO CLOSED PALMS to clear & close"}
+              {currentGesture === "none" && scrollDirection === "idle" && "Show 2 fingers to scroll | FIST to Grab | TWO CLOSED PALMS to close"}
             </span>
           </div>
 
@@ -672,7 +673,7 @@ export default function GestureFileBrowser({
               color: isDark ? "#94a3b8" : "#64748b",
             }}
           >
-            <span>🔍</span>
+            
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               Search {SECTIONS.find((s) => s.id === activeSectionId)?.name}
             </span>
@@ -696,7 +697,7 @@ export default function GestureFileBrowser({
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8", padding: "4px 8px" }}>
-              📁 Folders / Sections
+              Folders / Sections
             </div>
 
             {SECTIONS.map((sec, idx) => {
@@ -730,10 +731,10 @@ export default function GestureFileBrowser({
                     transition: "all 0.15s ease",
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>{sec.icon}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, background: "rgba(99,102,241,0.15)", color: "#6366f1", padding: "2px 5px", borderRadius: 4, letterSpacing: -0.3 }}>{sec.icon}</span>
                   <span style={{ flex: 1 }}>{sec.name}</span>
                   {isPointerOnSection && (
-                    <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 800 }}>👈</span>
+                    <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 800 }}>&lt;</span>
                   )}
                 </div>
               );
@@ -761,7 +762,7 @@ export default function GestureFileBrowser({
                 }}
               >
                 <span>➕</span>
-                <span>Upload Files (👊👊)</span>
+                <span>Upload Files</span>
               </button>
 
               <button
@@ -783,7 +784,7 @@ export default function GestureFileBrowser({
                   gap: 6,
                 }}
               >
-                <span>📁</span>
+                
                 <span>Upload Entire Folder</span>
               </button>
             </div>
@@ -1072,3 +1073,4 @@ export default function GestureFileBrowser({
     </div>
   );
 }
+

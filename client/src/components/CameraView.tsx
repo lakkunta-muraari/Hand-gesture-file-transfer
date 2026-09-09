@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+﻿import { useEffect, useRef, useState, useCallback } from "react";
 import { getHandLandmarker } from "../vision/handLandmarker";
 import { classifyMultiHand, type Gesture } from "../vision/gestureDetector";
 import { GestureDebouncer } from "../vision/gestureDebouncer";
@@ -11,6 +11,7 @@ export interface HandTrackingData {
   pointerX?: number;
   pointerY?: number;
   isPointing?: boolean;
+  isTwoFingerScroll?: boolean;
 }
 
 interface Props {
@@ -257,12 +258,14 @@ export default function CameraView({
 
   const gestureColors: Record<Gesture, string> = {
     "two-palms": "#6c5ce7",
+    "two-closed-palms": "#8b5cf6",
     "open-palm": "#00b894",
     fist: "#fdcb6e",
     none: "rgba(255,255,255,0.6)",
   };
   const gestureLabels: Record<Gesture, string> = {
     "two-palms": "TWO PALMS DETECTED",
+    "two-closed-palms": "TWO CLOSED PALMS",
     "open-palm": "OPEN PALM DETECTED",
     fist: "CLOSED FIST / GRAB",
     none: "Awaiting Gesture",
@@ -398,3 +401,5 @@ export default function CameraView({
     </div>
   );
 }
+
+

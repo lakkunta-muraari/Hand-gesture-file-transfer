@@ -134,7 +134,7 @@ export default function Home() {
         if (!senderStillPresent) {
           console.log("[Home] Sender left room. Clearing active sender.");
           setActiveSender(null);
-          showToast("Sender disconnected. Room reset to normal.", 3000);
+          showToast("Sender disconnected. Room reset.", 3000);
         }
       }
 
@@ -174,7 +174,7 @@ export default function Home() {
             fileNames: [],
             readyToSend: false,
           });
-          showToast(`🔒 ${data.senderName || "A peer"} opened file explorer. They are now the active sender.`, 3500);
+          showToast(`${data.senderName || "A peer"} opened file explorer. They are now the active sender.`, 3500);
         }
       } else if (data.kind === "picker-closed") {
         setPickerActiveDevice(null);
@@ -206,7 +206,7 @@ export default function Home() {
             fileNames: data.fileNames,
             readyToSend: true,
           });
-          showToast(`💧 ${data.senderName || "A peer"} is ready to send "${data.fileName}". Show OPEN PALM to receive!`, 6000);
+          showToast(`${data.senderName || "A peer"} is ready to send "${data.fileName}". Show OPEN PALM to receive!`, 6000);
         }
       } else if (data.kind === "file-cleared") {
         setActiveSender(null);
@@ -235,7 +235,7 @@ export default function Home() {
             setPreviewUrl(URL.createObjectURL(progress.blob));
           }
           setShowWaterDropCeremony(true);
-          showToast(`💧 Received "${progress.name}"! Downloading to device...`, 4000);
+          showToast(`Received "${progress.name}"! Downloading to device...`, 4000);
 
           // Automatically download to user's device Downloads
           try {
@@ -257,8 +257,8 @@ export default function Home() {
         // File transfer completed: sender can send more files, or show Two Closed Palms to finish
         showToast(
           progress.direction === "send"
-            ? `💧 Sent "${progress.name}"! Grab another file to send more, or show Two Closed Palms to finish.`
-            : `💧 Received & downloaded "${progress.name}"!`,
+            ? `Sent "${progress.name}". Grab another file to send more, or show Two Closed Palms to finish.`
+            : `Received and downloaded "${progress.name}".`,
           4000
         );
       }
@@ -341,8 +341,8 @@ export default function Home() {
       });
       showToast(
         count === 1
-          ? `💧 Grabbed "${fileList[0].name}"! Sender water effect active. Other device can show Open Palm to receive.`
-          : `💧 Grabbed ${count} files! Sender water effect active. Other device can show Open Palm to receive.`,
+          ? `File grabbed: "${fileList[0].name}". Sender ready. Other device can show Open Palm to receive.`
+          : `Grabbed ${count} files. Sender ready. Other device can show Open Palm to receive.`,
         5000
       );
     } else {
@@ -364,8 +364,8 @@ export default function Home() {
       });
       showToast(
         count === 1
-          ? `📁 File staged: "${fileList[0].name}"! Show CLOSED PALM (Fist) to ready for transfer.`
-          : `📁 ${count} files staged! Show CLOSED PALM (Fist) to ready for transfer.`,
+          ? `File staged: "${fileList[0].name}". Show CLOSED PALM (Fist) to send.`
+          : `${count} files staged. Show CLOSED PALM (Fist) to send.`,
         5000
       );
     }
@@ -392,7 +392,7 @@ export default function Home() {
   const handleSenderGrab = useCallback(() => {
     const files = stagedFilesRef.current;
     if (!files || files.length === 0) {
-      showToast("No files staged. Show Two Palms gesture to pick files first.");
+      showToast("No files staged. Show Two Open Palms gesture to open file picker.");
       return;
     }
 
@@ -435,7 +435,7 @@ export default function Home() {
 
     if (action === "open-file-picker") {
       if (pickerActiveDeviceRef.current && pickerActiveDeviceRef.current.id !== signaling.selfId) {
-        showToast(`🔒 ${pickerActiveDeviceRef.current.name} is currently using the file picker. Only one device can pick at a time.`, 4000);
+        showToast(`${pickerActiveDeviceRef.current.name} is currently using the file picker. Only one device can pick at a time.`, 4000);
         return;
       }
       const currentSender = activeSenderRef.current;
@@ -458,7 +458,7 @@ export default function Home() {
           senderName: signaling.selfName || "Peer",
         });
         setShowGestureBrowser(true);
-        showToast("Gesture File Explorer opened! Point 1 finger to scroll, Fist to Grab, Two Closed Palms to close.", 4000);
+        showToast("Gesture File Explorer opened! Show 2 fingers to scroll, Fist to Grab, Two Closed Palms to close.", 4000);
       }
     } else if (action === "open-native-upload") {
       // Two Closed Palms detected: Clear staged files, close file picker, reset room!
@@ -877,8 +877,8 @@ export default function Home() {
                     )}
                     <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
                       {isSenderReady
-                        ? "✅ Ready! Other device can now show OPEN PALM to receive."
-                        : "✊ Show CLOSED PALM (Fist) to ready file for transfer."}
+                        ? " Ready! Other device can now show OPEN PALM to receive."
+                        : " Show CLOSED PALM (Fist) to ready file for transfer."}
                     </div>
                   </div>
 
@@ -954,7 +954,7 @@ export default function Home() {
                     </div>
                     <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
                       {activeSender.readyToSend
-                        ? "✋ Show OPEN PALM to receive, or click the button below!"
+                        ? " Show OPEN PALM to receive, or click the button below!"
                         : `Waiting for ${activeSender.senderName} to show Closed Palm (Fist)...`}
                     </div>
                   </div>
@@ -980,7 +980,7 @@ export default function Home() {
                       display: "inline-flex", alignItems: "center", gap: 8,
                     }}
                   >
-                    <span>✋ Receive File (Open Palm)</span>
+                    <span> Receive File (Open Palm)</span>
                   </button>
                 )}
               </LiquidGlassCard>
@@ -1007,7 +1007,7 @@ export default function Home() {
                     interactive
                     onClick={() => {
                       if (pickerActiveDeviceRef.current && pickerActiveDeviceRef.current.id !== signaling.selfId) {
-                        showToast(`🔒 ${pickerActiveDeviceRef.current.name} currently has file explorer open.`, 3500);
+                        showToast(`${pickerActiveDeviceRef.current.name} currently has file explorer open.`, 3500);
                         return;
                       }
                       setPickerActiveDevice({ id: signaling.selfId || "", name: signaling.selfName || "Peer" });
