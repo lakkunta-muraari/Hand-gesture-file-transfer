@@ -281,14 +281,24 @@ export default function GestureFileBrowser({
   // Helper to convert item to real File
   const makeRealFile = (item: BrowserFileItem): File => {
     if (item.actualFile) return item.actualFile;
-    const content = `File content for ${item.name} via Gestura in-app gesture explorer.`;
-    const blob = new Blob([content], { type: "application/octet-stream" });
-    const file = new File([blob], item.name, {
-      type: item.type.includes("PDF") ? "application/pdf" : "application/octet-stream",
+    // Create an authentic real payload of bytes so WebRTC chunking works reliably
+    const safeSize = Math.min(item.sizeBytes, 1024 * 512); // 512 KB payload for instant responsive transfer
+    const buffer = new Uint8Array(safeSize);
+    const headerText = `Gestura Demo File: ${item.name}\nSize: ${item.sizeLabel}\nP2P Gesture File Transfer verified.\n`;
+    const encoder = new TextEncoder();
+    buffer.set(encoder.encode(headerText).subarray(0, safeSize));
+    const mime = item.name.endsWith(".pdf")
+      ? "application/pdf"
+      : item.name.endsWith(".docx")
+      ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      : item.name.endsWith(".mp4")
+      ? "video/mp4"
+      : "application/octet-stream";
+    const blob = new Blob([buffer], { type: mime });
+    return new File([blob], item.name, {
+      type: mime,
       lastModified: Date.now(),
     });
-    Object.defineProperty(file, "size", { value: item.sizeBytes, writable: false });
-    return file;
   };
 
   // Convert browser items to actual File objects and confirm
@@ -309,15 +319,16 @@ export default function GestureFileBrowser({
 
   // Direct grab action: points to file and grabs it directly into sender hand!
   const handleDirectGrab = useCallback((item: BrowserFileItem) => {
-    setGrabbedNotice(`✊ GRABBED "${item.name}"! Staging to hand...`);
+    setGrabbedNotice(`File Staged: "${item.name}"! Show Closed Palm to ready.`);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       try { navigator.vibrate([70, 40, 70]); } catch (_) {}
     }
     const realFile = makeRealFile(item);
     setTimeout(() => {
-      onConfirmFiles([realFile], true); // autoGrab = true!
-    }, 450);
-  }, [onConfirmFiles]);
+      onConfirmFiles([realFile], false); // Keep staged, do not auto-send
+      onClose(); // Automatically close file picker
+    }, 350);
+  }, [onConfirmFiles, onClose]);
 
   // Handle native file selection
   const handleNativeFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

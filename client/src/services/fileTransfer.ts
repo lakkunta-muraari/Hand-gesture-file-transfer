@@ -208,6 +208,10 @@ class FileTransferService {
       await this.waitForBufferSpace(deviceId);
 
       const slice = file.slice(offset, offset + CHUNK_SIZE);
+      if (slice.size === 0) {
+        console.warn(`[fileTransfer] slice returned 0 bytes at offset ${offset}, stopping send`);
+        break;
+      }
       const buffer = await slice.arrayBuffer();
 
       // Retry up to 3 times in case mobile data channel buffer is momentarily saturated

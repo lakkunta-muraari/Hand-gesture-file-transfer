@@ -74,43 +74,32 @@ export class GestureSequenceDetector {
     this.twoPalmsFired = false;
 
     // ── SEQUENCE DETECTION ─────────────────────────────────────────────────
-    if (stableGesture === "none") {
-      // Don't update prevGesture to "none" immediately —
-      // let the current gesture "linger" in prevGesture so brief
-      // occlusion between gestures doesn't break a sequence.
+    // Direct detection or sequence transitions:
+    // 1. Fist / Closed Palm -> GRAB
+    if (stableGesture === "fist") {
+      if (now >= this.cooldowns["grab"]) {
+        this.cooldowns["grab"] = now + this.COOLDOWN_MS["grab"];
+        this.prevGesture = stableGesture;
+        this.prevGestureTime = now;
+        console.log("[GSD] ACTION: grab (fist detected)");
+        return "grab";
+      }
       return "none";
     }
 
-    // New gesture entered (different from previous)
-    if (stableGesture !== this.prevGesture) {
-      const timeDiff = now - this.prevGestureTime;
-      const inWindow = timeDiff > 50 && timeDiff <= this.SEQUENCE_WINDOW_MS;
-
-      if (inWindow) {
-        // open-palm -> fist = GRAB
-        if (this.prevGesture === "open-palm" && stableGesture === "fist") {
-          if (now >= this.cooldowns["grab"]) {
-            this.cooldowns["grab"] = now + this.COOLDOWN_MS["grab"];
-            this.prevGesture = stableGesture;
-            this.prevGestureTime = now;
-            console.log("[GSD] ACTION: grab (open-palm → fist)");
-            return "grab";
-          }
-        }
-
-        // fist -> open-palm = RELEASE
-        if (this.prevGesture === "fist" && stableGesture === "open-palm") {
-          if (now >= this.cooldowns["release"]) {
-            this.cooldowns["release"] = now + this.COOLDOWN_MS["release"];
-            this.prevGesture = stableGesture;
-            this.prevGestureTime = now;
-            console.log("[GSD] ACTION: release (fist → open-palm)");
-            return "release";
-          }
-        }
+    // 2. Open Palm -> RELEASE (Receive)
+    if (stableGesture === "open-palm") {
+      if (now >= this.cooldowns["release"]) {
+        this.cooldowns["release"] = now + this.COOLDOWN_MS["release"];
+        this.prevGesture = stableGesture;
+        this.prevGestureTime = now;
+        console.log("[GSD] ACTION: release (open-palm detected)");
+        return "release";
       }
+      return "none";
+    }
 
-      // Record the new gesture as the start of a potential sequence
+    if (stableGesture !== "none") {
       this.prevGesture = stableGesture;
       this.prevGestureTime = now;
     }

@@ -81,6 +81,10 @@ export default function Home() {
   const [currentRawGesture, setCurrentRawGesture] = useState<string>("none");
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
   const [isSenderReady, setIsSenderReady] = useState(false);
+  const isSenderReadyRef = useRef(false);
+  useEffect(() => {
+    isSenderReadyRef.current = isSenderReady;
+  }, [isSenderReady]);
 
   // Two Palms Mobile File Picker helper banner
   const [showTwoPalmsPrompt, setShowTwoPalmsPrompt] = useState(false);
@@ -185,7 +189,7 @@ export default function Home() {
         setActiveSender(null);
         showToast("Files cleared. Any device can now select files.", 3000);
       } else if (data.kind === "receiver-ready") {
-        if (stagedFilesRef.current.length > 0 && isSenderReady) {
+        if (stagedFilesRef.current.length > 0 && (isSenderReady || isSenderReadyRef.current)) {
           const targetPeerId = data.receiverId;
           const filesToSend = [...stagedFilesRef.current];
           const count = filesToSend.length;
@@ -268,51 +272,28 @@ export default function Home() {
 
     setStagedFileName(summaryName);
     setStagedTotalSize(totalBytes);
-    if (autoGrab) {
-      setIsSenderReady(true);
-      const senderState: ActiveSenderState = {
-        senderId: signaling.selfId || "",
-        senderName: signaling.selfName || "Peer",
-        fileName: summaryName,
-        fileSize: totalBytes,
-        fileCount: count,
-        fileNames: fileList.map((f) => f.name),
-        readyToSend: true,
-      };
-      setActiveSender(senderState);
-      signaling.sendBroadcast({
-        kind: "file-staged",
-        ...senderState,
-      });
-      showToast(
-        count === 1
-          ? `✊ Grabbed "${fileList[0].name}"! Ready to send. Other device can show Open Palm to receive.`
-          : `✊ Grabbed ${count} files! Ready to send. Other device can show Open Palm to receive.`,
-        5000
-      );
-    } else {
-      setIsSenderReady(false);
-      const senderState: ActiveSenderState = {
-        senderId: signaling.selfId || "",
-        senderName: signaling.selfName || "Peer",
-        fileName: summaryName,
-        fileSize: totalBytes,
-        fileCount: count,
-        fileNames: fileList.map((f) => f.name),
-        readyToSend: false,
-      };
-      setActiveSender(senderState);
-      signaling.sendBroadcast({
-        kind: "file-staged",
-        ...senderState,
-      });
-      showToast(
-        count === 1
-          ? `"${fileList[0].name}" staged. Perform Grab gesture in camera view to ready file.`
-          : `${count} files staged (${formatFileSize(totalBytes)}). Perform Grab gesture to ready files.`,
-        5000
-      );
-    }
+    setIsSenderReady(false);
+    isSenderReadyRef.current = false;
+    const senderState: ActiveSenderState = {
+      senderId: signaling.selfId || "",
+      senderName: signaling.selfName || "Peer",
+      fileName: summaryName,
+      fileSize: totalBytes,
+      fileCount: count,
+      fileNames: fileList.map((f) => f.name),
+      readyToSend: false,
+    };
+    setActiveSender(senderState);
+    signaling.sendBroadcast({
+      kind: "file-staged",
+      ...senderState,
+    });
+    showToast(
+      count === 1
+        ? `📁 File staged: "${fileList[0].name}"! Show CLOSED PALM (Fist) to ready for transfer.`
+        : `📁 ${count} files staged! Show CLOSED PALM (Fist) to ready for transfer.`,
+      5000
+    );
   }, [showToast]);
 
   const handleClearStagedFile = useCallback(() => {
@@ -341,6 +322,7 @@ export default function Home() {
     }
 
     setIsSenderReady(true);
+    isSenderReadyRef.current = true;
     setShowSendCeremony(true);
 
     const count = files.length;
@@ -766,17 +748,17 @@ export default function Home() {
                       fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
                       color: isSenderReady ? "#10b981" : (isDark ? "#818cf8" : "#6366f1"), textTransform: "uppercase",
                     }}>
-                      isSenderReady ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <IconCheckCircle size={13} color="#10b981" />
-                        <span>Ready to Send (Grabbed)</span>
-                      </span>
+                      {isSenderReady ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <IconCheckCircle size={13} color="#10b981" />
+                          <span>Ready to Send (Closed Palm Confirmed)</span>
+                        </span>
                       ) : (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <IconDocument size={13} color={isDark ? "#818cf8" : "#6366f1"} />
-                        <span>Staged File (Sender Mode)</span>
-                      </span>
-                      )
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <IconDocument size={13} color={isDark ? "#818cf8" : "#6366f1"} />
+                          <span>File Staged — Show Closed Palm</span>
+                        </span>
+                      )}
                     </span>
                     <div style={{
                       fontWeight: 800, fontSize: 16, color: isDark ? "#f8fafc" : "#1e293b", marginTop: 2,
@@ -802,8 +784,8 @@ export default function Home() {
                     )}
                     <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
                       {isSenderReady
-                        ? "Receivers can now present closed fist gesture to download."
-                        : "Perform Grab gesture (open palm to fist) in camera view to ready file."}
+                        ? "✅ Ready! Other device can now show OPEN PALM to receive."
+                        : "✊ Show CLOSED PALM (Fist) to ready file for transfer."}
                     </div>
                   </div>
 
@@ -832,6 +814,80 @@ export default function Home() {
                   >
                     <IconFistGrab size={15} color="#fff" />
                     <span>Ready File (Grab)</span>
+                  </button>
+                )}
+              </LiquidGlassCard>
+            )}
+
+            {/* Incoming File Card for Receiver */}
+            {isOtherSender && activeSender && (
+              <LiquidGlassCard
+                tone="emerald"
+                interactive={false}
+                style={{
+                  border: activeSender.readyToSend ? "2px solid #10b981" : "2px solid #f59e0b",
+                  padding: "18px 22px",
+                  borderRadius: 24,
+                  marginBottom: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, letterSpacing: 1.2,
+                      color: activeSender.readyToSend ? "#10b981" : "#f59e0b", textTransform: "uppercase",
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                    }}>
+                      {activeSender.readyToSend ? (
+                        <>
+                          <IconCheckCircle size={13} color="#10b981" />
+                          <span>Ready to Receive — Show Open Palm</span>
+                        </>
+                      ) : (
+                        <>
+                          <IconDocument size={13} color="#f59e0b" />
+                          <span>File Staged by {activeSender.senderName}</span>
+                        </>
+                      )}
+                    </span>
+                    <div style={{
+                      fontWeight: 800, fontSize: 16, color: isDark ? "#f8fafc" : "#1e293b", marginTop: 2,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {activeSender.fileName} {activeSender.fileSize > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#94a3b8" : "#64748b" }}>({formatFileSize(activeSender.fileSize)})</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
+                      {activeSender.readyToSend
+                        ? "✋ Show OPEN PALM to receive, or click the button below!"
+                        : `Waiting for ${activeSender.senderName} to show Closed Palm (Fist)...`}
+                    </div>
+                  </div>
+                </div>
+
+                {activeSender.readyToSend && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      showToast(`Requesting "${activeSender.fileName}" from ${activeSender.senderName}...`, 3000);
+                      signaling.sendBroadcast({
+                        kind: "receiver-ready",
+                        receiverId: signaling.selfId,
+                        receiverName: signaling.selfName || "Peer",
+                        senderId: activeSender.senderId,
+                      });
+                    }}
+                    style={{
+                      padding: "10px 18px", borderRadius: 14, background: "linear-gradient(135deg, #10b981, #059669)",
+                      color: "#fff", fontWeight: 700, fontSize: 13, border: "none",
+                      cursor: "pointer", alignSelf: "flex-start",
+                      boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
+                      display: "inline-flex", alignItems: "center", gap: 8,
+                    }}
+                  >
+                    <span>✋ Receive File (Open Palm)</span>
                   </button>
                 )}
               </LiquidGlassCard>
