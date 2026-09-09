@@ -983,27 +983,17 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right Column: Floating Gesture HUD (Elevated to top-right when file browser is open!) */}
-          <div
-            className="hud-column"
-            style={showGestureBrowser ? {
-              position: "fixed",
-              top: 16,
-              right: 16,
-              zIndex: 100005,
-              width: 300,
-              maxWidth: "calc(100vw - 32px)",
-              filter: "drop-shadow(0 20px 30px rgba(0,0,0,0.6))",
-              pointerEvents: "auto",
-            } : undefined}
-          >
-            <FloatingGestureHUD
-              onActionDetected={handleGestureAction}
-              onRawGesture={handleRawGesture}
-              onHandPosition={setHandPos}
-              stagedFileName={stagedFileName || activeSender?.fileName}
-            />
-          </div>
+          {/* Right Column: Floating Gesture HUD (hidden when file browser is open, rendered separately) */}
+          {!showGestureBrowser && (
+            <div className="hud-column">
+              <FloatingGestureHUD
+                onActionDetected={handleGestureAction}
+                onRawGesture={handleRawGesture}
+                onHandPosition={setHandPos}
+                stagedFileName={stagedFileName || activeSender?.fileName}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1045,6 +1035,29 @@ export default function Home() {
           handPosition={handPos}
           currentGesture={currentRawGesture}
         />
+      )}
+
+      {/* Camera HUD elevated ABOVE file browser when it is open */}
+      {showGestureBrowser && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 16,
+            right: 16,
+            zIndex: 200000,
+            width: 280,
+            maxWidth: "calc(100vw - 32px)",
+            pointerEvents: "auto",
+            filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.7))",
+          }}
+        >
+          <FloatingGestureHUD
+            onActionDetected={handleGestureAction}
+            onRawGesture={handleRawGesture}
+            onHandPosition={setHandPos}
+            stagedFileName={stagedFileName || activeSender?.fileName}
+          />
+        </div>
       )}
     </LiquidGlassBackground>
   );

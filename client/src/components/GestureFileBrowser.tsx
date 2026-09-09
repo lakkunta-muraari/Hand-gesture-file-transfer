@@ -360,11 +360,47 @@ export default function GestureFileBrowser({
     });
   }, []);
 
-  // Process 1-Finger Pointing & Direct Fist Grab & Two-Closed-Palms Upload
+  // Process 1-Finger Pointing & Direct Fist Grab
+  // IMPORTANT: Only scroll when isPointing===true (1 finger only, NOT open palm!)
   useEffect(() => {
     if (!isOpen) return;
 
     const now = Date.now();
+
+    // ── TWO PALMS: Close the file picker immediately ──
+    if (currentGesture === "two-palms") {
+      if (now - lastGrabTimeRef.current > 1200) {
+        lastGrabTimeRef.current = now;
+        onClose();
+      }
+      return;
+    }
+
+    // ── FIST GRAB: Grab the pointed file and send directly ──
+    if (currentGesture === "fist") {
+      if (now - lastGrabTimeRef.current > 1000) {
+        lastGrabTimeRef.current = now;
+        if (focusedZone === "files" && currentFiles[activeFileIndex]) {
+          handleDirectGrab(currentFiles[activeFileIndex]);
+        }
+      }
+      return;
+    }
+
+    // ── OPEN PALM or NON-POINTING: Do NOT scroll, just idle ──
+    // This prevents open-palm from being confused with 1-finger scroll
+    if (currentGesture === "open-palm") {
+      setScrollDirection("idle");
+      return;
+    }
+
+    // ── 1-FINGER POINTING: Only process scroll when exactly 1 finger is extended ──
+    const isActuallyPointing = handPosition?.isPointing === true;
+    if (!isActuallyPointing) {
+      setScrollDirection("idle");
+      return;
+    }
+
     const px = handPosition?.pointerX ?? handPosition?.x;
     const py = handPosition?.pointerY ?? handPosition?.y;
 
@@ -373,13 +409,13 @@ export default function GestureFileBrowser({
       return;
     }
 
-    // 1. Zone determination: Left sidebar (x < 0.28) vs Main file list (x >= 0.28)
+    // Zone determination: Left sidebar (x < 0.28) vs Main file list (x >= 0.28)
     const newZone = px < 0.28 ? "sections" : "files";
     if (newZone !== focusedZone) {
       setFocusedZone(newZone);
     }
 
-    // 2. Vertical 1-Finger Movement: UP / DOWN / POINTING
+    // Vertical 1-Finger Movement: UP / DOWN / POINTING
     const isUp = py < 0.36;
     const isDown = py > 0.64;
 
@@ -412,33 +448,8 @@ export default function GestureFileBrowser({
         }
       }
     } else {
+      // In the middle zone: pointed at the current item
       setScrollDirection("pointing");
-    }
-
-    // 3. Direct Fist Grab: Grabs pointed file and sends it directly!
-    if (currentGesture === "fist") {
-      if (now - lastGrabTimeRef.current > 1000) {
-        lastGrabTimeRef.current = now;
-        if (newZone === "files" && currentFiles[activeFileIndex]) {
-          handleDirectGrab(currentFiles[activeFileIndex]);
-        }
-      }
-    }
-
-    // 4. Two Closed Palms: Trigger file upload dialog
-    if (currentGesture === "two-closed-palms") {
-      if (now - lastGrabTimeRef.current > 1200) {
-        lastGrabTimeRef.current = now;
-        nativeInputRef.current?.click();
-      }
-    }
-
-    // 5. Two Palms: Confirm all checked
-    if (currentGesture === "two-palms") {
-      if (now - lastGrabTimeRef.current > 1200) {
-        lastGrabTimeRef.current = now;
-        handleConfirm(false);
-      }
     }
   }, [
     isOpen,
@@ -449,6 +460,7 @@ export default function GestureFileBrowser({
     activeFileIndex,
     handleDirectGrab,
     handleConfirm,
+    onClose,
   ]);
 
   if (!isOpen) return null;
@@ -605,11 +617,12 @@ export default function GestureFileBrowser({
             </span>
             <span>
               {currentGesture === "fist" && "FIST DETECTED: GRABBING POINTED FILE TO SEND!"}
-              {currentGesture === "two-closed-palms" && "TWO CLOSED PALMS DETECTED: OPENING UPLOAD!"}
-              {currentGesture === "none" && scrollDirection === "up" && "1 FINGER UP: SCROLLING UP ▲"}
-              {currentGesture === "none" && scrollDirection === "down" && "1 FINGER DOWN: SCROLLING DOWN ▼"}
+              {currentGesture === "open-palm" && "OPEN PALM DETECTED (not scrolling) — Show 1 finger to scroll"}
+              {currentGesture === "two-palms" && "TWO PALMS DETECTED: CLOSING FILE PICKER..."}
+              {currentGesture === "none" && scrollDirection === "up" && "☝️ 1 FINGER UP: SCROLLING UP ▲"}
+              {currentGesture === "none" && scrollDirection === "down" && "👇 1 FINGER DOWN: SCROLLING DOWN ▼"}
               {currentGesture === "none" && scrollDirection === "pointing" && `POINTED AT: "${currentFiles[activeFileIndex]?.name || "File"}" — Make a FIST to GRAB!`}
-              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll UP/DOWN • Close FIST to GRAB & SEND directly!"}
+              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll • FIST to GRAB • TWO PALMS to close"}
             </span>
           </div>
 
