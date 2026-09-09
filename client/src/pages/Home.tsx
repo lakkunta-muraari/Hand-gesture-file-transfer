@@ -80,6 +80,9 @@ export default function Home() {
   const [handPos, setHandPos] = useState<HandTrackingData | null>(null);
   const [currentRawGesture, setCurrentRawGesture] = useState<string>("none");
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
+    const [pickerActiveDevice, setPickerActiveDevice] = useState<{ id: string; name: string } | null>(null);
+  const pickerActiveDeviceRef = useRef<{ id: string; name: string } | null>(null);
+  pickerActiveDeviceRef.current = pickerActiveDevice;
   const [isSenderReady, setIsSenderReady] = useState(false);
   const isSenderReadyRef = useRef(false);
   useEffect(() => {
@@ -159,7 +162,27 @@ export default function Home() {
       const data = msg.data as any;
       if (!data || typeof data !== "object") return;
 
-      if (data.kind === "file-staged") {
+      if (data.kind === "picker-opened") {
+        if (data.senderId !== signaling.selfId) {
+          setPickerActiveDevice({ id: data.senderId, name: data.senderName || "A peer" });
+          setActiveSender({
+            senderId: data.senderId,
+            senderName: data.senderName || "A peer",
+            fileName: "Selecting files in file explorer...",
+            fileSize: 0,
+            fileCount: 0,
+            fileNames: [],
+            readyToSend: false,
+          });
+          showToast(`🔒 ${data.senderName || "A peer"} opened file explorer. They are now the active sender.`, 3500);
+        }
+      } else if (data.kind === "picker-closed") {
+        setPickerActiveDevice(null);
+        if (activeSenderRef.current?.senderId === data.senderId && !activeSenderRef.current.readyToSend) {
+          setActiveSender(null);
+          showToast(`File explorer closed by peer. File picker is now unlocked.`, 3000);
+        }
+      } else if (data.kind === "file-staged") {
         if (data.senderId !== signaling.selfId) {
           setActiveSender({
             senderId: data.senderId,
@@ -183,7 +206,7 @@ export default function Home() {
             fileNames: data.fileNames,
             readyToSend: true,
           });
-          showToast(`${data.senderName || "A peer"} is ready to share "${data.fileName}". Present closed fist to download.`, 6000);
+          showToast(`💧 ${data.senderName || "A peer"} is ready to send "${data.fileName}". Show OPEN PALM to receive!`, 6000);
         }
       } else if (data.kind === "file-cleared") {
         setActiveSender(null);
@@ -206,12 +229,35 @@ export default function Home() {
 
     const unsubTransfer = fileTransfer.onProgress((progress) => {
       setCurrentTransfer(progress);
-      if (progress.direction === "receive" && progress.status === "complete" && progress.blob) {
-        if (progress.mimeType.startsWith("image/")) {
-          setPreviewUrl(URL.createObjectURL(progress.blob));
+      if (progress.status === "complete") {
+        if (progress.direction === "receive" && progress.blob) {
+          if (progress.mimeType.startsWith("image/")) {
+            setPreviewUrl(URL.createObjectURL(progress.blob));
+          }
+          setShowWaterDropCeremony(true);
+          showToast(`💧 Received "${progress.name}"! Downloading to device...`, 4000);
+
+          // Automatically download to user's device Downloads
+          try {
+            const blobUrl = URL.createObjectURL(progress.blob);
+            const downloadLink = document.createElement("a");
+            downloadLink.href = blobUrl;
+            downloadLink.download = progress.name;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            setTimeout(() => {
+              document.body.removeChild(downloadLink);
+              URL.revokeObjectURL(blobUrl);
+            }, 1500);
+          } catch (dlErr) {
+            console.error("[Home] auto download failed:", dlErr);
+          }
         }
-        setShowWaterDropCeremony(true);
-        showToast(`Downloaded "${progress.name}" successfully!`, 4000);
+
+        // Auto-clear transfer lock after 4 seconds so other devices can open picker
+        setTimeout(() => {
+          handleClearStagedFile();
+        }, 4000);
       }
     });
 
@@ -272,28 +318,54 @@ export default function Home() {
 
     setStagedFileName(summaryName);
     setStagedTotalSize(totalBytes);
-    setIsSenderReady(false);
-    isSenderReadyRef.current = false;
-    const senderState: ActiveSenderState = {
-      senderId: signaling.selfId || "",
-      senderName: signaling.selfName || "Peer",
-      fileName: summaryName,
-      fileSize: totalBytes,
-      fileCount: count,
-      fileNames: fileList.map((f) => f.name),
-      readyToSend: false,
-    };
-    setActiveSender(senderState);
-    signaling.sendBroadcast({
-      kind: "file-staged",
-      ...senderState,
-    });
-    showToast(
-      count === 1
-        ? `📁 File staged: "${fileList[0].name}"! Show CLOSED PALM (Fist) to ready for transfer.`
-        : `📁 ${count} files staged! Show CLOSED PALM (Fist) to ready for transfer.`,
-      5000
-    );
+    if (autoGrab) {
+      setIsSenderReady(true);
+      isSenderReadyRef.current = true;
+      setShowSendCeremony(true); // Trigger Sender Water Drop Ceremony!
+      const senderState: ActiveSenderState = {
+        senderId: signaling.selfId || "",
+        senderName: signaling.selfName || "Peer",
+        fileName: summaryName,
+        fileSize: totalBytes,
+        fileCount: count,
+        fileNames: fileList.map((f) => f.name),
+        readyToSend: true,
+      };
+      setActiveSender(senderState);
+      signaling.sendBroadcast({
+        kind: "sender-ready",
+        ...senderState,
+      });
+      showToast(
+        count === 1
+          ? `💧 Grabbed "${fileList[0].name}"! Sender water effect active. Other device can show Open Palm to receive.`
+          : `💧 Grabbed ${count} files! Sender water effect active. Other device can show Open Palm to receive.`,
+        5000
+      );
+    } else {
+      setIsSenderReady(false);
+      isSenderReadyRef.current = false;
+      const senderState: ActiveSenderState = {
+        senderId: signaling.selfId || "",
+        senderName: signaling.selfName || "Peer",
+        fileName: summaryName,
+        fileSize: totalBytes,
+        fileCount: count,
+        fileNames: fileList.map((f) => f.name),
+        readyToSend: false,
+      };
+      setActiveSender(senderState);
+      signaling.sendBroadcast({
+        kind: "file-staged",
+        ...senderState,
+      });
+      showToast(
+        count === 1
+          ? `📁 File staged: "${fileList[0].name}"! Show CLOSED PALM (Fist) to ready for transfer.`
+          : `📁 ${count} files staged! Show CLOSED PALM (Fist) to ready for transfer.`,
+        5000
+      );
+    }
   }, [showToast]);
 
   const handleClearStagedFile = useCallback(() => {
@@ -359,6 +431,10 @@ export default function Home() {
     console.log(`[Home] Gesture action received: ${action}`);
 
     if (action === "open-file-picker") {
+      if (pickerActiveDeviceRef.current && pickerActiveDeviceRef.current.id !== signaling.selfId) {
+        showToast(`🔒 ${pickerActiveDeviceRef.current.name} is currently using the file picker. Only one device can pick at a time.`, 4000);
+        return;
+      }
       const currentSender = activeSenderRef.current;
       const isOtherActive = !!(
         currentSender &&
@@ -367,13 +443,19 @@ export default function Home() {
       );
 
       if (isOtherActive && currentSender) {
-        showToast(`${currentSender.senderName} has already selected a file. Please wait until cleared.`, 4000);
+        showToast(`${currentSender.senderName} has already selected a file. Please wait until transfer completes.`, 4000);
       } else {
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           try { navigator.vibrate([40, 30, 40]); } catch (_) { }
         }
+        setPickerActiveDevice({ id: signaling.selfId || "", name: signaling.selfName || "Peer" });
+        signaling.sendBroadcast({
+          kind: "picker-opened",
+          senderId: signaling.selfId,
+          senderName: signaling.selfName || "Peer",
+        });
         setShowGestureBrowser(true);
-        showToast("Gesture File Browser opened! Move hand left/right to browse, fist grab to select.", 4000);
+        showToast("Gesture File Explorer opened! Point 1 finger to scroll, Fist to Grab, Two Closed Palms to close.", 4000);
       }
     } else if (action === "open-native-upload") {
       openFileSelector();
@@ -912,7 +994,19 @@ export default function Home() {
                   <LiquidGlassPill
                     tone="violet"
                     interactive
-                    onClick={() => setShowGestureBrowser(true)}
+                    onClick={() => {
+                      if (pickerActiveDeviceRef.current && pickerActiveDeviceRef.current.id !== signaling.selfId) {
+                        showToast(`🔒 ${pickerActiveDeviceRef.current.name} currently has file explorer open.`, 3500);
+                        return;
+                      }
+                      setPickerActiveDevice({ id: signaling.selfId || "", name: signaling.selfName || "Peer" });
+                      signaling.sendBroadcast({
+                        kind: "picker-opened",
+                        senderId: signaling.selfId,
+                        senderName: signaling.selfName || "Peer",
+                      });
+                      setShowGestureBrowser(true);
+                    }}
                     style={{
                       padding: "7px 14px",
                       fontWeight: 700,
@@ -1079,7 +1173,14 @@ export default function Home() {
       {showGestureBrowser && (
         <GestureFileBrowser
           isOpen={showGestureBrowser}
-          onClose={() => setShowGestureBrowser(false)}
+          onClose={() => {
+            setShowGestureBrowser(false);
+            setPickerActiveDevice(null);
+            signaling.sendBroadcast({
+              kind: "picker-closed",
+              senderId: signaling.selfId,
+            });
+          }}
           onConfirmFiles={(files, autoGrab) => {
             setShowGestureBrowser(false);
             handleFilesSelected(files, autoGrab);

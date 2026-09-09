@@ -319,16 +319,15 @@ export default function GestureFileBrowser({
 
   // Direct grab action: points to file and grabs it directly into sender hand!
   const handleDirectGrab = useCallback((item: BrowserFileItem) => {
-    setGrabbedNotice(`File Staged: "${item.name}"! Show Closed Palm to ready.`);
+    setGrabbedNotice(`💧 Grabbed "${item.name}"! Sender water effect active. Show Two Closed Palms to close picker.`);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       try { navigator.vibrate([70, 40, 70]); } catch (_) {}
     }
     const realFile = makeRealFile(item);
-    setTimeout(() => {
-      onConfirmFiles([realFile], false); // Keep staged, do not auto-send
-      onClose(); // Automatically close file picker
-    }, 350);
-  }, [onConfirmFiles, onClose]);
+    // STAGE AND GRAB: autoGrab = true triggers sender water effect & broadcasts readyToSend: true!
+    // Notice: Picker STAYS OPEN as requested until user shows Two Closed Palms!
+    onConfirmFiles([realFile], true);
+  }, [onConfirmFiles]);
 
   // Handle native file selection
   const handleNativeFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,16 +379,16 @@ export default function GestureFileBrowser({
 
     const now = Date.now();
 
-    // ── TWO PALMS: Close the file picker immediately ──
-    if (currentGesture === "two-palms") {
-      if (now - lastGrabTimeRef.current > 1200) {
+    // ── TWO CLOSED PALMS: Close the file picker ──
+    if (currentGesture === "two-closed-palms") {
+      if (now - lastGrabTimeRef.current > 800) {
         lastGrabTimeRef.current = now;
         onClose();
       }
       return;
     }
 
-    // ── FIST GRAB: Grab the pointed file and send directly ──
+    // ── FIST / CLOSED PALM: Grab pointed file & trigger sender water effect ──
     if (currentGesture === "fist") {
       if (now - lastGrabTimeRef.current > 1000) {
         lastGrabTimeRef.current = now;
@@ -631,11 +630,11 @@ export default function GestureFileBrowser({
             <span>
               {currentGesture === "fist" && "FIST DETECTED: GRABBING POINTED FILE TO SEND!"}
               {currentGesture === "open-palm" && "OPEN PALM DETECTED (not scrolling) — Show 1 finger to scroll"}
-              {currentGesture === "two-palms" && "TWO PALMS DETECTED: CLOSING FILE PICKER..."}
+              {currentGesture === "two-closed-palms" && "TWO CLOSED PALMS DETECTED: CLOSING FILE PICKER..."}
               {currentGesture === "none" && scrollDirection === "up" && "☝️ 1 FINGER UP: SCROLLING UP ▲"}
               {currentGesture === "none" && scrollDirection === "down" && "👇 1 FINGER DOWN: SCROLLING DOWN ▼"}
               {currentGesture === "none" && scrollDirection === "pointing" && `POINTED AT: "${currentFiles[activeFileIndex]?.name || "File"}" — Make a FIST to GRAB!`}
-              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll • FIST to GRAB • TWO PALMS to close"}
+              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll • FIST / Closed Palm to GRAB • TWO CLOSED PALMS to close"}
             </span>
           </div>
 
