@@ -8,6 +8,7 @@ import RoomQr from "../components/RoomQr";
 import FloatingGestureHUD from "../components/FloatingGestureHUD";
 import WaterDropEffect from "../components/WaterDropEffect";
 import SendDropEffect from "../components/SendDropEffect";
+import GestureFileBrowser from "../components/GestureFileBrowser";
 import type { GestureAction } from "../vision/gestureSequenceDetector";
 import type { Gesture } from "../vision/gestureDetector";
 import { useTheme } from "../utils/useTheme";
@@ -74,6 +75,9 @@ export default function Home() {
     setActiveSender(null);
   }, []);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showGestureBrowser, setShowGestureBrowser] = useState(false);
+  const [handPos, setHandPos] = useState<{ x: number; y: number } | null>(null);
+  const [currentRawGesture, setCurrentRawGesture] = useState<string>("none");
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
   const [isSenderReady, setIsSenderReady] = useState(false);
 
@@ -364,11 +368,8 @@ export default function Home() {
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           try { navigator.vibrate([40, 30, 40]); } catch (_) { }
         }
-        openFileSelector();
-        setShowTwoPalmsPrompt(true);
-        if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
-        promptTimerRef.current = setTimeout(() => setShowTwoPalmsPrompt(false), 8000);
-        showToast("Two palms detected — tap the purple \"OPEN FILE PICKER\" button in the Gesture HUD ", 5000);
+        setShowGestureBrowser(true);
+        showToast("Gesture File Browser opened! Move hand left/right to browse, fist grab to select.", 4000);
       }
     } else if (action === "grab") {
       if (stagedFilesRef.current.length > 0 && !isSenderReady) {
@@ -391,8 +392,8 @@ export default function Home() {
     }
   }, [isSenderReady, openFileSelector, handleSenderGrab, showToast]);
 
-  const handleRawGesture = useCallback((_gesture: Gesture) => {
-    // Handled in HUD
+  const handleRawGesture = useCallback((gesture: Gesture) => {
+    setCurrentRawGesture(gesture.name);
   }, []);
 
   return (
@@ -830,7 +831,7 @@ export default function Home() {
                   <LiquidGlassPill
                     tone="violet"
                     interactive
-                    onClick={openFileSelector}
+                    onClick={() => setShowGestureBrowser(true)}
                     style={{
                       padding: "7px 14px",
                       fontWeight: 700,
@@ -962,6 +963,7 @@ export default function Home() {
             <FloatingGestureHUD
               onActionDetected={handleGestureAction}
               onRawGesture={handleRawGesture}
+              onHandPosition={setHandPos}
               stagedFileName={stagedFileName || activeSender?.fileName}
             />
           </div>
@@ -987,6 +989,24 @@ export default function Home() {
         <SendDropEffect
           fileName={stagedFileName || "File"}
           onComplete={() => setShowSendCeremony(false)}
+        />
+      )}
+
+      {/* In-App Gesture File Browser */}
+      {showGestureBrowser && (
+        <GestureFileBrowser
+          isOpen={showGestureBrowser}
+          onClose={() => setShowGestureBrowser(false)}
+          onConfirmFiles={(files) => {
+            setShowGestureBrowser(false);
+            handleFilesSelected(files);
+          }}
+          onOpenNativePicker={() => {
+            setShowGestureBrowser(false);
+            openFileSelector();
+          }}
+          handPosition={handPos}
+          currentGesture={currentRawGesture}
         />
       )}
     </LiquidGlassBackground>

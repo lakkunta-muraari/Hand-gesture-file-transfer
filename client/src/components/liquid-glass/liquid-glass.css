@@ -283,19 +283,24 @@
 
 @media (max-width: 768px) {
   .lg-glass {
-    backdrop-filter: blur(16px) saturate(135%);
-    -webkit-backdrop-filter: blur(16px) saturate(135%);
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+    transform: translateZ(0);
   }
   .lg-glass-rounded {
     border-radius: 20px;
   }
+  /* Mobile performance optimization: Disable expensive animated blurs on phones */
   .lg-blob {
-    filter: blur(40px);
-    opacity: 0.35;
+    animation: none !important;
+    filter: blur(20px) !important;
+    opacity: 0.2 !important;
+    will-change: auto !important;
+    transform: none !important;
   }
-  .lg-blob-one { width: 220px; height: 220px; left: -80px; }
-  .lg-blob-two { width: 180px; height: 180px; right: -60px; }
-  .lg-blob-three { width: 200px; height: 160px; }
+  .lg-blob-one { width: 200px; height: 200px; left: -60px; }
+  .lg-blob-two { width: 160px; height: 160px; right: -40px; }
+  .lg-blob-three { width: 180px; height: 140px; }
 }
 
 @media (max-width: 480px) {
@@ -303,8 +308,9 @@
     border-radius: 18px;
   }
   .lg-blob {
-    filter: blur(32px);
-    opacity: 0.25;
+    animation: none !important;
+    filter: blur(16px) !important;
+    opacity: 0.15 !important;
   }
 }
 

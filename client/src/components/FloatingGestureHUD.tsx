@@ -15,10 +15,11 @@ import {
 interface Props {
   onActionDetected: (action: GestureAction) => void;
   onRawGesture?: (gesture: Gesture) => void;
+  onHandPosition?: (pos: { x: number; y: number } | null) => void;
   stagedFileName?: string | null;
 }
 
-export default function FloatingGestureHUD({ onActionDetected, onRawGesture, stagedFileName }: Props) {
+export default function FloatingGestureHUD({ onActionDetected, onRawGesture, onHandPosition, stagedFileName }: Props) {
   const { isDark } = useTheme();
   const [minimized, setMinimized] = useState(false);
   const [cameraStatus, setCameraStatus] = useState<"idle" | "loading" | "ready" | "error">("loading");
@@ -81,7 +82,7 @@ export default function FloatingGestureHUD({ onActionDetected, onRawGesture, sta
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           }}>
             <div style={{ position: "absolute", inset: 0, opacity: 0.75 }}>
-              <CameraView active={true} onGestureChange={handleGestureChange} onStatusChange={setCameraStatus} showPreview={true} />
+              <CameraView active={true} onGestureChange={handleGestureChange} onStatusChange={setCameraStatus} onHandPosition={onHandPosition} showPreview={true} />
             </div>
 
             {/* Camera Status Badge */}
