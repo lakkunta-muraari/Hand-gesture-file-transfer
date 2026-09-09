@@ -4,7 +4,7 @@ export interface Landmark {
   z?: number;
 }
 
-export type Gesture = "fist" | "open-palm" | "two-palms" | "none";
+export type Gesture = "fist" | "open-palm" | "two-palms" | "two-closed-palms" | "none";
 
 // Finger tip and pip (knuckle) landmark indices from MediaPipe
 // Index: pip=6,tip=8 | Middle: pip=10,tip=12 | Ring: pip=14,tip=16 | Pinky: pip=18,tip=20
@@ -66,6 +66,11 @@ export function classifyMultiHand(allHands: Landmark[][]): { gesture: Gesture; c
     // If both hands have 2+ extended fingers in frame, it is Two Palms
     if (count1 >= 2 && count2 >= 2) {
       return { gesture: "two-palms", confidence: 0.95 };
+    }
+
+    // If both hands have <= 1 extended fingers (two closed palms / two closed fists)
+    if (count1 <= 1 && count2 <= 1) {
+      return { gesture: "two-closed-palms", confidence: 0.95 };
     }
   }
 

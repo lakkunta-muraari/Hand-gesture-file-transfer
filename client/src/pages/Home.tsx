@@ -238,7 +238,7 @@ export default function Home() {
     }
   }, [showToast]);
 
-  const handleFilesSelected = useCallback((files: File[] | FileList | null) => {
+  const handleFilesSelected = useCallback((files: File[] | FileList | null, autoGrab: boolean = false) => {
     if (!files) return;
     const fileList = Array.isArray(files) ? files : Array.from(files);
     if (fileList.length === 0) return;
@@ -268,30 +268,51 @@ export default function Home() {
 
     setStagedFileName(summaryName);
     setStagedTotalSize(totalBytes);
-    setIsSenderReady(false);
-
-    const senderState: ActiveSenderState = {
-      senderId: signaling.selfId || "",
-      senderName: signaling.selfName || "Peer",
-      fileName: summaryName,
-      fileSize: totalBytes,
-      fileCount: count,
-      fileNames: fileList.map((f) => f.name),
-      readyToSend: false,
-    };
-    setActiveSender(senderState);
-
-    signaling.sendBroadcast({
-      kind: "file-staged",
-      ...senderState,
-    });
-
-    showToast(
-      count === 1
-        ? `"${fileList[0].name}" staged. Perform Grab gesture in camera view to ready file.`
-        : `${count} files staged (${formatFileSize(totalBytes)}). Perform Grab gesture to ready files.`,
-      5000
-    );
+    if (autoGrab) {
+      setIsSenderReady(true);
+      const senderState: ActiveSenderState = {
+        senderId: signaling.selfId || "",
+        senderName: signaling.selfName || "Peer",
+        fileName: summaryName,
+        fileSize: totalBytes,
+        fileCount: count,
+        fileNames: fileList.map((f) => f.name),
+        readyToSend: true,
+      };
+      setActiveSender(senderState);
+      signaling.sendBroadcast({
+        kind: "file-staged",
+        ...senderState,
+      });
+      showToast(
+        count === 1
+          ? `✊ Grabbed "${fileList[0].name}"! Ready to send. Other device can show Open Palm to receive.`
+          : `✊ Grabbed ${count} files! Ready to send. Other device can show Open Palm to receive.`,
+        5000
+      );
+    } else {
+      setIsSenderReady(false);
+      const senderState: ActiveSenderState = {
+        senderId: signaling.selfId || "",
+        senderName: signaling.selfName || "Peer",
+        fileName: summaryName,
+        fileSize: totalBytes,
+        fileCount: count,
+        fileNames: fileList.map((f) => f.name),
+        readyToSend: false,
+      };
+      setActiveSender(senderState);
+      signaling.sendBroadcast({
+        kind: "file-staged",
+        ...senderState,
+      });
+      showToast(
+        count === 1
+          ? `"${fileList[0].name}" staged. Perform Grab gesture in camera view to ready file.`
+          : `${count} files staged (${formatFileSize(totalBytes)}). Perform Grab gesture to ready files.`,
+        5000
+      );
+    }
   }, [showToast]);
 
   const handleClearStagedFile = useCallback(() => {
@@ -372,6 +393,9 @@ export default function Home() {
         setShowGestureBrowser(true);
         showToast("Gesture File Browser opened! Move hand left/right to browse, fist grab to select.", 4000);
       }
+    } else if (action === "open-native-upload") {
+      openFileSelector();
+      showToast("Two closed palms detected! Opening native file upload...", 4000);
     } else if (action === "grab") {
       if (stagedFilesRef.current.length > 0 && !isSenderReady) {
         handleSenderGrab();
@@ -959,8 +983,20 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right Column: Floating Gesture HUD (responsive via CSS class) */}
-          <div className="hud-column">
+          {/* Right Column: Floating Gesture HUD (Elevated to top-right when file browser is open!) */}
+          <div
+            className="hud-column"
+            style={showGestureBrowser ? {
+              position: "fixed",
+              top: 16,
+              right: 16,
+              zIndex: 100005,
+              width: 300,
+              maxWidth: "calc(100vw - 32px)",
+              filter: "drop-shadow(0 20px 30px rgba(0,0,0,0.6))",
+              pointerEvents: "auto",
+            } : undefined}
+          >
             <FloatingGestureHUD
               onActionDetected={handleGestureAction}
               onRawGesture={handleRawGesture}
@@ -998,9 +1034,9 @@ export default function Home() {
         <GestureFileBrowser
           isOpen={showGestureBrowser}
           onClose={() => setShowGestureBrowser(false)}
-          onConfirmFiles={(files) => {
+          onConfirmFiles={(files, autoGrab) => {
             setShowGestureBrowser(false);
-            handleFilesSelected(files);
+            handleFilesSelected(files, autoGrab);
           }}
           onOpenNativePicker={() => {
             setShowGestureBrowser(false);

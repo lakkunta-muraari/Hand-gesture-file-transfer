@@ -1,6 +1,6 @@
 import type { Gesture } from "./gestureDetector";
 
-export type GestureAction = "grab" | "release" | "open-file-picker" | "none";
+export type GestureAction = "grab" | "release" | "open-file-picker" | "open-native-upload" | "none";
 
 /**
  * Detects gesture SEQUENCES from a stream of stable gestures.
@@ -24,15 +24,18 @@ export class GestureSequenceDetector {
   // Per-action cooldowns so one doesn't block another
   private cooldowns: Record<GestureAction, number> = {
     "open-file-picker": 0,
+    "open-native-upload": 0,
     "grab": 0,
     "release": 0,
     "none": 0,
   };
 
   private twoPalmsFired: boolean = false;
+  private twoClosedPalmsFired: boolean = false;
   private readonly SEQUENCE_WINDOW_MS = 2500;
   private readonly COOLDOWN_MS: Record<GestureAction, number> = {
     "open-file-picker": 3000,
+    "open-native-upload": 3000,
     "grab": 2000,
     "release": 2000,
     "none": 0,
@@ -40,6 +43,18 @@ export class GestureSequenceDetector {
 
   update(stableGesture: Gesture): GestureAction {
     const now = Date.now();
+
+    // ── TWO CLOSED PALMS: fire once on entry to open upload ──────────────
+    if (stableGesture === "two-closed-palms") {
+      if (!this.twoClosedPalmsFired && now - this.cooldowns["open-native-upload"] > this.COOLDOWN_MS["open-native-upload"]) {
+        this.twoClosedPalmsFired = true;
+        this.cooldowns["open-native-upload"] = now;
+        return "open-native-upload";
+      }
+      return "none";
+    } else {
+      this.twoClosedPalmsFired = false;
+    }
 
     // ── TWO PALMS: fire once on entry ─────────────────────────────────────
     if (stableGesture === "two-palms") {

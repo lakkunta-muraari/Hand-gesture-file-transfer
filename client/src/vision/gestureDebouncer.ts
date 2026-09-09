@@ -26,13 +26,13 @@ export class GestureDebouncer {
     if (this.history.length < 2) return this.stable;
 
     // Count occurrences of each gesture in the window
-    const counts: Record<Gesture, number> = { fist: 0, "open-palm": 0, "two-palms": 0, none: 0 };
+    const counts: Record<Gesture, number> = { fist: 0, "open-palm": 0, "two-palms": 0, "two-closed-palms": 0, none: 0 };
     for (const g of this.history) counts[g]++;
 
     const total = this.history.length;
 
     // Check two-palms first (highest priority), then fist, then open-palm
-    for (const candidate of ["two-palms", "fist", "open-palm"] as const) {
+    for (const candidate of ["two-palms", "two-closed-palms", "fist", "open-palm"] as const) {
       if (counts[candidate] / total >= this.requiredRatio) {
         this.stable = candidate;
         return this.stable;
