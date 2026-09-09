@@ -319,7 +319,7 @@ export default function GestureFileBrowser({
 
   // Direct grab action: points to file and grabs it directly into sender hand!
   const handleDirectGrab = useCallback((item: BrowserFileItem) => {
-    setGrabbedNotice(`💧 Grabbed "${item.name}"! Sender water effect active. Show Two Closed Palms to close picker.`);
+    setGrabbedNotice(`💧 Grabbed "${item.name}"! Sender water effect active. Show Two Closed Palms when finished to clear & close.`);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       try { navigator.vibrate([70, 40, 70]); } catch (_) {}
     }
@@ -381,7 +381,7 @@ export default function GestureFileBrowser({
 
     // ── TWO CLOSED PALMS: Close the file picker ──
     if (currentGesture === "two-closed-palms") {
-      if (now - lastGrabTimeRef.current > 800) {
+      if (now - lastGrabTimeRef.current > 600) {
         lastGrabTimeRef.current = now;
         onClose();
       }
@@ -635,7 +635,7 @@ export default function GestureFileBrowser({
               {currentGesture === "none" && scrollDirection === "up" && "☝️ 1 FINGER UP: SCROLLING UP ▲"}
               {currentGesture === "none" && scrollDirection === "down" && "👇 1 FINGER DOWN: SCROLLING DOWN ▼"}
               {currentGesture === "none" && scrollDirection === "pointing" && `POINTED AT: "${currentFiles[activeFileIndex]?.name || "File"}" — Make a FIST to GRAB!`}
-              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll • FIST / Closed Palm to GRAB • TWO CLOSED PALMS to close"}
+              {currentGesture === "none" && scrollDirection === "idle" && "Point 1 finger to scroll UP/DOWN • FIST to Grab • TWO CLOSED PALMS to clear & close"}
             </span>
           </div>
 

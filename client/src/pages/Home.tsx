@@ -254,10 +254,13 @@ export default function Home() {
           }
         }
 
-        // Auto-clear transfer lock after 4 seconds so other devices can open picker
-        setTimeout(() => {
-          handleClearStagedFile();
-        }, 4000);
+        // File transfer completed: sender can send more files, or show Two Closed Palms to finish
+        showToast(
+          progress.direction === "send"
+            ? `💧 Sent "${progress.name}"! Grab another file to send more, or show Two Closed Palms to finish.`
+            : `💧 Received & downloaded "${progress.name}"!`,
+          4000
+        );
       }
     });
 
@@ -458,8 +461,15 @@ export default function Home() {
         showToast("Gesture File Explorer opened! Point 1 finger to scroll, Fist to Grab, Two Closed Palms to close.", 4000);
       }
     } else if (action === "open-native-upload") {
-      openFileSelector();
-      showToast("Two closed palms detected! Opening native file upload...", 4000);
+      // Two Closed Palms detected: Clear staged files, close file picker, reset room!
+      handleClearStagedFile();
+      setShowGestureBrowser(false);
+      setPickerActiveDevice(null);
+      signaling.sendBroadcast({
+        kind: "picker-closed",
+        senderId: signaling.selfId,
+      });
+      showToast("Two Closed Palms: File picker closed and stage cleared. Any device can now be sender.", 4000);
     } else if (action === "grab") {
       if (stagedFilesRef.current.length > 0 && !isSenderReady) {
         handleSenderGrab();
@@ -1177,6 +1187,7 @@ export default function Home() {
           onClose={() => {
             setShowGestureBrowser(false);
             setPickerActiveDevice(null);
+            handleClearStagedFile();
             signaling.sendBroadcast({
               kind: "picker-closed",
               senderId: signaling.selfId,

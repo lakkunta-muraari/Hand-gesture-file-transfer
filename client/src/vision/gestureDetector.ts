@@ -33,44 +33,73 @@ export function countExtendedFingers(landmarks: Landmark[]): number {
   for (const { pip, tip } of FINGER_JOINTS) {
     const pipDist = distance(landmarks[pip], wrist);
     const tipDist = distance(landmarks[tip], wrist);
-    const m1Extended = tipDist > pipDist * 1.02;
-    const m2Extended = distance(landmarks[tip], wrist) > palmSize * 0.85;
+    const m1Extended = tipDist > pipDist * 1.05;
+    const m2Extended = distance(landmarks[tip], wrist) > palmSize * 0.9;
 
-    if (m1Extended || m2Extended) extendedCount++;
+    if (m1Extended && m2Extended) extendedCount++;
   }
 
   // Thumb
   const thumbTipDist = distance(landmarks[THUMB.tip], wrist);
   const thumbIpDist  = distance(landmarks[THUMB.ip],  wrist);
-  if (thumbTipDist > thumbIpDist * 1.02) extendedCount++;
+  if (thumbTipDist > thumbIpDist * 1.08) extendedCount++;
 
   return extendedCount;
 }
 
-export function classifySingleHand(landmarks: Landmark[]): "fist" | "open-palm" {
-  const count = countExtendedFingers(landmarks);
-  if (count >= 3) return "open-palm";
-  return "fist";
+/**
+ * Robust check for a closed fist:
+ * Index, middle, and ring tips MUST be folded close to wrist (below PIP joints).
+ * If index finger is extended (pointing to scroll), it is NEVER a fist!
+ */
+export function isHandFist(landmarks: Landmark[]): boolean {
+  if (!landmarks || landmarks.length < 21) return false;
+  const wrist = landmarks[0];
+
+  const indexFolded  = distance(landmarks[8],  wrist) <= distance(landmarks[6],  wrist) * 1.15;
+  const middleFolded = distance(landmarks[12], wrist) <= distance(landmarks[10], wrist) * 1.15;
+  const ringFolded   = distance(landmarks[16], wrist) <= distance(landmarks[14], wrist) * 1.15;
+  const pinkyFolded  = distance(landmarks[20], wrist) <= distance(landmarks[18], wrist) * 1.15;
+
+  // Crucial: Index and Middle MUST be folded. If index is pointing, it returns false!
+  return indexFolded && middleFolded && (ringFolded || pinkyFolded);
+}
+
+/**
+ * Check for open palm: at least 4 extended fingers
+ */
+export function isHandOpen(landmarks: Landmark[]): boolean {
+  if (!landmarks || landmarks.length < 21) return false;
+  return countExtendedFingers(landmarks) >= 4;
+}
+
+export function classifySingleHand(landmarks: Landmark[]): Gesture {
+  if (!landmarks || landmarks.length < 21) return "none";
+  if (isHandOpen(landmarks)) return "open-palm";
+  if (isHandFist(landmarks)) return "fist";
+  return "none";
 }
 
 export function classifyGesture(landmarks: Landmark[]): { gesture: Gesture; confidence: number } {
   const result = classifySingleHand(landmarks);
-  return { gesture: result, confidence: 0.9 };
+  return { gesture: result, confidence: result === "none" ? 0 : 0.9 };
 }
 
 export function classifyMultiHand(allHands: Landmark[][]): { gesture: Gesture; confidence: number } {
   if (allHands.length >= 2) {
-    const count1 = countExtendedFingers(allHands[0]);
-    const count2 = countExtendedFingers(allHands[1]);
+    const isFist1 = isHandFist(allHands[0]);
+    const isFist2 = isHandFist(allHands[1]);
+    const isOpen1 = isHandOpen(allHands[0]);
+    const isOpen2 = isHandOpen(allHands[1]);
 
-    // If both hands have 2+ extended fingers in frame, it is Two Palms
-    if (count1 >= 2 && count2 >= 2) {
-      return { gesture: "two-palms", confidence: 0.95 };
+    // Both hands closed into fists -> TWO CLOSED PALMS!
+    if (isFist1 && isFist2) {
+      return { gesture: "two-closed-palms", confidence: 0.95 };
     }
 
-    // If both hands have <= 1 extended fingers (two closed palms / two closed fists)
-    if (count1 <= 1 && count2 <= 1) {
-      return { gesture: "two-closed-palms", confidence: 0.95 };
+    // Both hands open -> TWO PALMS!
+    if (isOpen1 && isOpen2) {
+      return { gesture: "two-palms", confidence: 0.95 };
     }
   }
 
