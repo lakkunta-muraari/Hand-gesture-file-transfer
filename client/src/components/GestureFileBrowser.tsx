@@ -379,7 +379,7 @@ export default function GestureFileBrowser({
 
     const now = Date.now();
 
-    // ── TWO CLOSED PALMS: Close the file picker ──
+    // ── 1. TWO CLOSED PALMS: Close the file picker and clear stage ──
     if (currentGesture === "two-closed-palms") {
       if (now - lastGrabTimeRef.current > 600) {
         lastGrabTimeRef.current = now;
@@ -388,7 +388,7 @@ export default function GestureFileBrowser({
       return;
     }
 
-    // ── FIST / CLOSED PALM: Grab pointed file & trigger sender water effect ──
+    // ── 2. FIST / CLOSED PALM: Grab pointed file & trigger sender water effect ──
     if (currentGesture === "fist") {
       if (now - lastGrabTimeRef.current > 800) {
         lastGrabTimeRef.current = now;
@@ -400,69 +400,38 @@ export default function GestureFileBrowser({
       return;
     }
 
-    // ── OPEN PALM or NON-POINTING: Do NOT scroll, just idle ──
-    // This prevents open-palm from being confused with 1-finger scroll
+    // ── 3. OPEN PALM: Stay idle, do not scroll ──
     if (currentGesture === "open-palm") {
       setScrollDirection("idle");
       return;
     }
 
-    // ── 1-FINGER POINTING: Only process scroll when exactly 1 finger is extended ──
-    const isActuallyPointing = handPosition?.isPointing === true;
-    if (!isActuallyPointing) {
-      setScrollDirection("idle");
-      return;
-    }
-
-    const px = handPosition?.pointerX ?? handPosition?.x;
+    // ── 4. 1-FINGER VERTICAL SCROLLING ON FILES LIST ──
+    const isPointing = handPosition?.isPointing === true;
     const py = handPosition?.pointerY ?? handPosition?.y;
 
-    if (px === undefined || py === undefined || px === null || py === null) {
-      setScrollDirection("idle");
-      return;
-    }
-
-    // Zone determination: Left sidebar (x < 0.28) vs Main file list (x >= 0.28)
-    const newZone = px < 0.28 ? "sections" : "files";
-    if (newZone !== focusedZone) {
-      setFocusedZone(newZone);
-    }
-
-    // Vertical 1-Finger Movement: UP / DOWN / POINTING
-    const isUp = py < 0.36;
-    const isDown = py > 0.64;
-
-    if (isUp) {
-      setScrollDirection("up");
-      if (now - lastScrollTimeRef.current > 380) {
-        lastScrollTimeRef.current = now;
-        if (newZone === "files") {
+    if (isPointing && py !== undefined && py !== null) {
+      // Natural, intuitive vertical zones:
+      // Finger in upper region (py < 0.45) -> scroll UP
+      // Finger in lower region (py > 0.55) -> scroll DOWN
+      // Middle region -> pointing at highlighted file
+      if (py < 0.45) {
+        setScrollDirection("up");
+        if (now - lastScrollTimeRef.current > 240) {
+          lastScrollTimeRef.current = now;
           setActiveFileIndex((prev) => Math.max(0, prev - 1));
-        } else {
-          setActiveSectionIndex((prev) => {
-            const nextIdx = Math.max(0, prev - 1);
-            setActiveSectionId(SECTIONS[nextIdx].id);
-            return nextIdx;
-          });
         }
-      }
-    } else if (isDown) {
-      setScrollDirection("down");
-      if (now - lastScrollTimeRef.current > 380) {
-        lastScrollTimeRef.current = now;
-        if (newZone === "files") {
+      } else if (py > 0.55) {
+        setScrollDirection("down");
+        if (now - lastScrollTimeRef.current > 240) {
+          lastScrollTimeRef.current = now;
           setActiveFileIndex((prev) => Math.min(currentFiles.length - 1, prev + 1));
-        } else {
-          setActiveSectionIndex((prev) => {
-            const nextIdx = Math.min(SECTIONS.length - 1, prev + 1);
-            setActiveSectionId(SECTIONS[nextIdx].id);
-            return nextIdx;
-          });
         }
+      } else {
+        setScrollDirection("pointing");
       }
     } else {
-      // In the middle zone: pointed at the current item
-      setScrollDirection("pointing");
+      setScrollDirection("idle");
     }
   }, [
     isOpen,
@@ -877,7 +846,7 @@ export default function GestureFileBrowser({
               </div>
 
               {currentFiles.map((file, idx) => {
-                const isPointed = focusedZone === "files" && activeFileIndex === idx;
+                const isPointed = activeFileIndex === idx;
                 const isSelected = selectedFileIds.has(file.id);
 
                 return (

@@ -1194,7 +1194,8 @@ export default function Home() {
             });
           }}
           onConfirmFiles={(files, autoGrab) => {
-            setShowGestureBrowser(false);
+            // DO NOT close file explorer here!
+            // It remains OPEN as requested by the user until Two Closed Palms is shown!
             handleFilesSelected(files, autoGrab);
           }}
           onOpenNativePicker={() => {

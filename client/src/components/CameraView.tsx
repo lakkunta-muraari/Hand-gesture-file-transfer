@@ -204,12 +204,13 @@ export default function CameraView({
                   return Math.sqrt(dx * dx + dy * dy);
                 };
 
-                const indexExt = d(indexTip, wrist) > d(indexPip, wrist) * 1.08;
-                const middleFolded = d(middleTip, wrist) <= d(middlePip, wrist) * 1.15;
-                const ringFolded = d(ringTip, wrist) <= d(ringPip, wrist) * 1.15;
-                const pinkyFolded = d(pinkyTip, wrist) <= d(pinkyPip, wrist) * 1.15;
+                const indexExt = d(indexTip, wrist) > d(indexPip, wrist) * 1.04;
+                const middleFolded = d(middleTip, wrist) <= d(middlePip, wrist) * 1.25;
+                const ringFolded = d(ringTip, wrist) <= d(ringPip, wrist) * 1.25;
+                const pinkyFolded = d(pinkyTip, wrist) <= d(pinkyPip, wrist) * 1.25;
 
-                const isPointing = indexExt && middleFolded && ringFolded && pinkyFolded;
+                // Index finger extended while middle & other fingers curled = clear pointing gesture
+                const isPointing = indexExt && middleFolded && (ringFolded || pinkyFolded);
                 const pointerX = 1.0 - indexTip.x;
                 const pointerY = indexTip.y;
 
