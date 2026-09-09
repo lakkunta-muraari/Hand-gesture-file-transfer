@@ -9,6 +9,7 @@ export interface GestureFileBrowserProps {
   onOpenNativePicker: () => void;
   handPosition: HandTrackingData | null;
   currentGesture?: string;
+  cameraHud?: React.ReactNode;
 }
 
 interface BrowserFileItem {
@@ -239,6 +240,7 @@ export default function GestureFileBrowser({
   onOpenNativePicker,
   handPosition,
   currentGesture = "none",
+  cameraHud,
 }: GestureFileBrowserProps) {
   const { isDark } = useTheme();
 
@@ -1069,6 +1071,24 @@ export default function GestureFileBrowser({
           </div>
         </div>
       </div>
+
+      {/* Embedded Camera HUD in bottom-right corner of file picker overlay */}
+      {cameraHud && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 16,
+            right: 16,
+            zIndex: 100020,
+            width: 280,
+            maxWidth: "calc(100vw - 32px)",
+            pointerEvents: "auto",
+            filter: "drop-shadow(0 15px 35px rgba(0,0,0,0.8))",
+          }}
+        >
+          {cameraHud}
+        </div>
+      )}
     </div>
   );
 }

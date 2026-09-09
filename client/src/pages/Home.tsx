@@ -1019,7 +1019,7 @@ export default function Home() {
         />
       )}
 
-      {/* In-App Gesture File Browser */}
+      {/* In-App Gesture File Browser with embedded Camera HUD */}
       {showGestureBrowser && (
         <GestureFileBrowser
           isOpen={showGestureBrowser}
@@ -1034,31 +1034,18 @@ export default function Home() {
           }}
           handPosition={handPos}
           currentGesture={currentRawGesture}
+          cameraHud={
+            <FloatingGestureHUD
+              onActionDetected={handleGestureAction}
+              onRawGesture={handleRawGesture}
+              onHandPosition={setHandPos}
+              stagedFileName={stagedFileName || activeSender?.fileName}
+            />
+          }
         />
       )}
 
-      {/* Camera HUD elevated ABOVE file browser when it is open */}
-      {showGestureBrowser && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 16,
-            right: 16,
-            zIndex: 200000,
-            width: 280,
-            maxWidth: "calc(100vw - 32px)",
-            pointerEvents: "auto",
-            filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.7))",
-          }}
-        >
-          <FloatingGestureHUD
-            onActionDetected={handleGestureAction}
-            onRawGesture={handleRawGesture}
-            onHandPosition={setHandPos}
-            stagedFileName={stagedFileName || activeSender?.fileName}
-          />
-        </div>
-      )}
+
     </LiquidGlassBackground>
   );
 }
