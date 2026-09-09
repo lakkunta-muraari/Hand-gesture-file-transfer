@@ -15,7 +15,7 @@ import {
 interface Props {
   onActionDetected: (action: GestureAction) => void;
   onRawGesture?: (gesture: Gesture) => void;
-  onHandPosition?: (pos: { x: number; y: number } | null) => void;
+  onHandPosition?: (pos: HandTrackingData | null) => void;
   stagedFileName?: string | null;
 }
 

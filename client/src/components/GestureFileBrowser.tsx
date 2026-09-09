@@ -1,90 +1,236 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import type { HandTrackingData } from "./CameraView";
 import { useTheme } from "../utils/useTheme";
-import type { Gesture } from "../vision/gestureDetector";
-import {
-  IconCheckCircle,
-  IconFistGrab,
-  IconTwoPalms,
-} from "./icons/GesturaIcons";
 
-export interface BrowserFileItem {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  category: "pdf" | "video" | "image" | "archive" | "data" | "custom";
-  description: string;
-  isCustom?: boolean;
-  fileObj?: File;
-}
-
-const PRELOADED_FILES: BrowserFileItem[] = [
-  {
-    id: "demo-pdf",
-    name: "Project_Presentation.pdf",
-    type: "application/pdf",
-    size: 4.2 * 1024 * 1024,
-    category: "pdf",
-    description: "Slide deck covering system architecture & vision pipeline.",
-  },
-  {
-    id: "demo-video",
-    name: "GESTURA_Demo_Clip.mp4",
-    type: "video/mp4",
-    size: 18.5 * 1024 * 1024,
-    category: "video",
-    description: "Full HD recorded demo of P2P hand gesture sharing.",
-  },
-  {
-    id: "demo-image",
-    name: "System_Architecture.png",
-    type: "image/png",
-    size: 2.1 * 1024 * 1024,
-    category: "image",
-    description: "High-resolution diagram of WebRTC signaling & MediaPipe.",
-  },
-  {
-    id: "demo-zip",
-    name: "Source_Code_Archive.zip",
-    type: "application/zip",
-    size: 5.8 * 1024 * 1024,
-    category: "archive",
-    description: "Complete production source code & configuration assets.",
-  },
-  {
-    id: "demo-data",
-    name: "Benchmark_Metrics.csv",
-    type: "text/csv",
-    size: 940 * 1024,
-    category: "data",
-    description: "Real-time latency, throughput & FPS evaluation logs.",
-  },
-];
-
-interface Props {
+export interface GestureFileBrowserProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirmFiles: (files: File[]) => void;
   onOpenNativePicker: () => void;
-  handPosition?: { x: number; y: number } | null;
-  activeGesture?: Gesture;
+  handPosition: HandTrackingData | null;
+  currentGesture?: string;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+interface BrowserFileItem {
+  id: string;
+  name: string;
+  dateModified: string;
+  type: string;
+  sizeBytes: number;
+  sizeLabel: string;
+  extension: "pdf" | "docx" | "png" | "jpg" | "mp4" | "zip" | "other";
+  actualFile?: File;
 }
 
-// Generate an authentic synthetic File instance for demo items
-function createSynthesizedFile(item: BrowserFileItem): File {
-  if (item.fileObj) return item.fileObj;
-  const header = `=== GESTURA DEMO ASSET: ${item.name} ===\nType: ${item.type}\nSize: ${item.size} bytes\nTimestamp: ${new Date().toISOString()}\n\n`;
-  const paddingNeeded = Math.min(item.size, 1024 * 64);
-  const blobData = new Blob([header + "X".repeat(Math.max(0, paddingNeeded - header.length))], { type: item.type });
-  return new File([blobData], item.name, { type: item.type, lastModified: Date.now() });
+interface SectionFolder {
+  id: string;
+  name: string;
+  icon: string;
+  path: string;
+}
+
+const SECTIONS: SectionFolder[] = [
+  { id: "downloads", name: "Downloads", icon: "📥", path: "Downloads" },
+  { id: "documents", name: "Documents", icon: "📄", path: "Documents" },
+  { id: "pictures", name: "Pictures", icon: "🖼️", path: "Pictures" },
+  { id: "videos", name: "Videos", icon: "🎥", path: "Videos" },
+  { id: "desktop", name: "Desktop", icon: "🖥️", path: "Desktop" },
+];
+
+// Presets matching the user's actual presentation and file picker screenshot!
+const FOLDER_PRESETS: Record<string, BrowserFileItem[]> = {
+  downloads: [
+    {
+      id: "dl-1",
+      name: "University_Lost_and_Found_Abstract.pdf",
+      dateModified: "09-09-2026 14:50",
+      type: "PDF Document",
+      sizeBytes: 2516582,
+      sizeLabel: "2.4 MB",
+      extension: "pdf",
+    },
+    {
+      id: "dl-2",
+      name: "ilovepdf_merged (1).pdf",
+      dateModified: "09-09-2026 14:40",
+      type: "PDF Document",
+      sizeBytes: 5033164,
+      sizeLabel: "4.8 MB",
+      extension: "pdf",
+    },
+    {
+      id: "dl-3",
+      name: "ilovepdf_merged.docx",
+      dateModified: "09-09-2026 14:39",
+      type: "Microsoft Word Document",
+      sizeBytes: 1258291,
+      sizeLabel: "1.2 MB",
+      extension: "docx",
+    },
+    {
+      id: "dl-4",
+      name: "ilovepdf_merged.pdf",
+      dateModified: "09-09-2026 14:31",
+      type: "PDF Document",
+      sizeBytes: 3250585,
+      sizeLabel: "3.1 MB",
+      extension: "pdf",
+    },
+    {
+      id: "dl-5",
+      name: "gestura.pdf",
+      dateModified: "09-09-2026 14:30",
+      type: "PDF Document",
+      sizeBytes: 5872025,
+      sizeLabel: "5.6 MB",
+      extension: "pdf",
+    },
+    {
+      id: "dl-6",
+      name: "GESTURA_Full_Presentation_Guide.pdf",
+      dateModified: "09-09-2026 14:29",
+      type: "PDF Document",
+      sizeBytes: 8598323,
+      sizeLabel: "8.2 MB",
+      extension: "pdf",
+    },
+  ],
+  documents: [
+    {
+      id: "doc-1",
+      name: "GESTURA_Project_Final_Report.pdf",
+      dateModified: "08-09-2026 16:20",
+      type: "PDF Document",
+      sizeBytes: 3984588,
+      sizeLabel: "3.8 MB",
+      extension: "pdf",
+    },
+    {
+      id: "doc-2",
+      name: "WebRTC_P2P_Transfer_Architecture.docx",
+      dateModified: "07-09-2026 11:15",
+      type: "Microsoft Word Document",
+      sizeBytes: 943718,
+      sizeLabel: "920 KB",
+      extension: "docx",
+    },
+    {
+      id: "doc-3",
+      name: "Gesture_Recognition_Benchmark_Specs.pdf",
+      dateModified: "06-09-2026 18:42",
+      type: "PDF Document",
+      sizeBytes: 1887436,
+      sizeLabel: "1.8 MB",
+      extension: "pdf",
+    },
+  ],
+  pictures: [
+    {
+      id: "pic-1",
+      name: "gestura_live_demo_screenshot.png",
+      dateModified: "09-09-2026 12:10",
+      type: "PNG Image",
+      sizeBytes: 2306867,
+      sizeLabel: "2.2 MB",
+      extension: "png",
+    },
+    {
+      id: "pic-2",
+      name: "hand_tracking_landmarks_diagram.jpg",
+      dateModified: "08-09-2026 09:30",
+      type: "JPEG Image",
+      sizeBytes: 1572864,
+      sizeLabel: "1.5 MB",
+      extension: "jpg",
+    },
+  ],
+  videos: [
+    {
+      id: "vid-1",
+      name: "gestura_transfer_demo_847mb.mp4",
+      dateModified: "08-09-2026 21:04",
+      type: "MP4 Video",
+      sizeBytes: 888143872,
+      sizeLabel: "847 MB",
+      extension: "mp4",
+    },
+    {
+      id: "vid-2",
+      name: "project_walkthrough_presentation.mp4",
+      dateModified: "09-09-2026 15:10",
+      type: "MP4 Video",
+      sizeBytes: 356515840,
+      sizeLabel: "340 MB",
+      extension: "mp4",
+    },
+  ],
+  desktop: [
+    {
+      id: "dsk-1",
+      name: "Project_Presentation_Notes.txt",
+      dateModified: "09-09-2026 16:00",
+      type: "Text Document",
+      sizeBytes: 14500,
+      sizeLabel: "14 KB",
+      extension: "other",
+    },
+  ],
+};
+
+function getFileIcon(ext: BrowserFileItem["extension"]) {
+  switch (ext) {
+    case "pdf":
+      return (
+        <div style={{
+          width: 22, height: 26, background: "#ef4444", borderRadius: 3,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontWeight: 800, fontSize: 8, letterSpacing: -0.5, flexShrink: 0
+        }}>
+          PDF
+        </div>
+      );
+    case "docx":
+      return (
+        <div style={{
+          width: 22, height: 26, background: "#2563eb", borderRadius: 3,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontWeight: 800, fontSize: 8, letterSpacing: -0.5, flexShrink: 0
+        }}>
+          DOC
+        </div>
+      );
+    case "mp4":
+      return (
+        <div style={{
+          width: 22, height: 26, background: "#8b5cf6", borderRadius: 3,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontWeight: 800, fontSize: 8, letterSpacing: -0.5, flexShrink: 0
+        }}>
+          VID
+        </div>
+      );
+    case "png":
+    case "jpg":
+      return (
+        <div style={{
+          width: 22, height: 26, background: "#06b6d4", borderRadius: 3,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontWeight: 800, fontSize: 8, letterSpacing: -0.5, flexShrink: 0
+        }}>
+          IMG
+        </div>
+      );
+    default:
+      return (
+        <div style={{
+          width: 22, height: 26, background: "#64748b", borderRadius: 3,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontWeight: 800, fontSize: 8, letterSpacing: -0.5, flexShrink: 0
+        }}>
+          FILE
+        </div>
+      );
+  }
 }
 
 export default function GestureFileBrowser({
@@ -93,470 +239,741 @@ export default function GestureFileBrowser({
   onConfirmFiles,
   onOpenNativePicker,
   handPosition,
-  activeGesture,
-}: Props) {
+  currentGesture = "none",
+}: GestureFileBrowserProps) {
   const { isDark } = useTheme();
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(["demo-pdf"]));
-  const [focusedIndex, setFocusedIndex] = useState<number>(0);
-  const [lastGestureHandled, setLastGestureHandled] = useState<string>("");
 
-  // Smooth continuous gesture scrolling based on Hand X position (0.0 = Left, 1.0 = Right)
+  // Navigation state
+  const [activeSectionId, setActiveSectionId] = useState<string>("downloads");
+  const [folderFiles, setFolderFiles] = useState<Record<string, BrowserFileItem[]>>(FOLDER_PRESETS);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+
+  // Focus and cursor state
+  const [focusedZone, setFocusedZone] = useState<"sections" | "files">("files");
+  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number>(0);
+
+  // Gesture scroll state
+  const [scrollDirection, setScrollDirection] = useState<"up" | "down" | "pointing" | "idle">("idle");
+  const [dwellProgress, setDwellProgress] = useState<number>(0);
+
+  const nativeInputRef = useRef<HTMLInputElement>(null);
+  const lastScrollTimeRef = useRef<number>(0);
+  const lastGrabTimeRef = useRef<number>(0);
+  const activeRowRef = useRef<HTMLDivElement>(null);
+  const dwellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const currentFiles = folderFiles[activeSectionId] || [];
+
+  // Keep index within bounds when folder changes
   useEffect(() => {
-    if (!isOpen || !handPosition || !carouselRef.current) return;
+    setActiveFileIndex(0);
+  }, [activeSectionId]);
 
-    const scrollContainer = carouselRef.current;
-    const x = handPosition.x;
-
-    if (x < 0.38) {
-      const speed = Math.max(4, Math.round((0.38 - x) * 35));
-      scrollContainer.scrollLeft -= speed;
-    } else if (x > 0.62) {
-      const speed = Math.max(4, Math.round((x - 0.62) * 35));
-      scrollContainer.scrollLeft += speed;
+  // Scroll active row into view
+  useEffect(() => {
+    if (activeRowRef.current) {
+      activeRowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
-  }, [isOpen, handPosition]);
+  }, [activeFileIndex]);
 
-  // Handle Grab gesture (Closed Fist) to toggle/select the focused item
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (activeGesture === "fist" && lastGestureHandled !== "fist") {
-      setLastGestureHandled("fist");
-      const targetItem = PRELOADED_FILES[focusedIndex];
-      if (targetItem) {
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(targetItem.id)) next.delete(targetItem.id);
-          else next.add(targetItem.id);
-          return next;
-        });
+  // Convert browser items to actual File objects
+  const handleConfirm = useCallback(() => {
+    const chosen: File[] = [];
+    currentFiles.forEach((item) => {
+      if (selectedFileIds.has(item.id)) {
+        if (item.actualFile) {
+          chosen.push(item.actualFile);
+        } else {
+          // Generate a synthetic File object with requested name and size
+          const content = `Mock file content for ${item.name} generated by Gestura In-App Gesture Browser.`;
+          const blob = new Blob([content], { type: "application/octet-stream" });
+          const file = new File([blob], item.name, {
+            type: item.type.includes("PDF") ? "application/pdf" : "application/octet-stream",
+            lastModified: Date.now(),
+          });
+          // Attach simulated size
+          Object.defineProperty(file, "size", { value: item.sizeBytes, writable: false });
+          chosen.push(file);
+        }
       }
-    } else if (activeGesture !== "fist" && lastGestureHandled === "fist") {
-      setLastGestureHandled("");
-    }
-  }, [isOpen, activeGesture, focusedIndex, lastGestureHandled]);
+    });
 
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
+    if (chosen.length === 0 && currentFiles[activeFileIndex]) {
+      // If none explicitly checked, take currently pointed file
+      const item = currentFiles[activeFileIndex];
+      const content = `Mock file content for ${item.name}`;
+      const blob = new Blob([content], { type: "application/octet-stream" });
+      const file = new File([blob], item.name, {
+        type: item.type.includes("PDF") ? "application/pdf" : "application/octet-stream",
+        lastModified: Date.now(),
+      });
+      Object.defineProperty(file, "size", { value: item.sizeBytes, writable: false });
+      chosen.push(file);
+    }
+
+    onConfirmFiles(chosen);
+  }, [currentFiles, selectedFileIds, activeFileIndex, onConfirmFiles]);
+
+  // Handle native file selection
+  const handleNativeFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newItems: BrowserFileItem[] = Array.from(files).map((f, i) => ({
+      id: `uploaded-${Date.now()}-${i}`,
+      name: f.name,
+      dateModified: new Date(f.lastModified).toLocaleDateString() + " " + new Date(f.lastModified).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      type: f.type || "File",
+      sizeBytes: f.size,
+      sizeLabel: (f.size / (1024 * 1024)).toFixed(1) + " MB",
+      extension: f.name.endsWith(".pdf") ? "pdf" : f.name.endsWith(".docx") ? "docx" : f.name.endsWith(".mp4") ? "mp4" : "other",
+      actualFile: f,
+    }));
+
+    setFolderFiles((prev) => ({
+      ...prev,
+      [activeSectionId]: [...newItems, ...(prev[activeSectionId] || [])],
+    }));
+
+    // Auto-select uploaded files
+    setSelectedFileIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      newItems.forEach((it) => next.add(it.id));
+      return next;
+    });
+
+    setActiveFileIndex(0);
+  }, [activeSectionId]);
+
+  // Toggle selection on current file
+  const toggleSelection = useCallback((fileId: string) => {
+    setSelectedFileIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
       return next;
     });
   }, []);
 
-  const handleConfirm = useCallback(() => {
-    const chosenItems = PRELOADED_FILES.filter((f) => selectedIds.has(f.id));
-    if (chosenItems.length === 0) return;
-    const files = chosenItems.map(createSynthesizedFile);
-    onConfirmFiles(files);
-    onClose();
-  }, [selectedIds, onConfirmFiles, onClose]);
+  // Process 1-Finger Pointing & Vertical Scrolling Gesture
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const now = Date.now();
+    const px = handPosition?.pointerX ?? handPosition?.x;
+    const py = handPosition?.pointerY ?? handPosition?.y;
+
+    if (px === undefined || py === undefined || px === null || py === null) {
+      setScrollDirection("idle");
+      return;
+    }
+
+    // 1. Zone determination: Left sidebar (x < 0.28) vs Main file list (x >= 0.28)
+    const newZone = px < 0.28 ? "sections" : "files";
+    if (newZone !== focusedZone) {
+      setFocusedZone(newZone);
+    }
+
+    // 2. Vertical 1-Finger Movement: UP / DOWN / POINTING
+    const isUp = py < 0.36;
+    const isDown = py > 0.64;
+
+    if (isUp) {
+      setScrollDirection("up");
+      if (now - lastScrollTimeRef.current > 380) {
+        lastScrollTimeRef.current = now;
+        if (newZone === "files") {
+          setActiveFileIndex((prev) => Math.max(0, prev - 1));
+        } else {
+          setActiveSectionIndex((prev) => {
+            const nextIdx = Math.max(0, prev - 1);
+            setActiveSectionId(SECTIONS[nextIdx].id);
+            return nextIdx;
+          });
+        }
+      }
+    } else if (isDown) {
+      setScrollDirection("down");
+      if (now - lastScrollTimeRef.current > 380) {
+        lastScrollTimeRef.current = now;
+        if (newZone === "files") {
+          setActiveFileIndex((prev) => Math.min(currentFiles.length - 1, prev + 1));
+        } else {
+          setActiveSectionIndex((prev) => {
+            const nextIdx = Math.min(SECTIONS.length - 1, prev + 1);
+            setActiveSectionId(SECTIONS[nextIdx].id);
+            return nextIdx;
+          });
+        }
+      }
+    } else {
+      // In middle zone: Pointing steadily at the item
+      setScrollDirection("pointing");
+    }
+
+    // 3. Fist Grab selection toggle
+    if (currentGesture === "fist") {
+      if (now - lastGrabTimeRef.current > 700) {
+        lastGrabTimeRef.current = now;
+        if (newZone === "files" && currentFiles[activeFileIndex]) {
+          toggleSelection(currentFiles[activeFileIndex].id);
+          if (typeof navigator !== "undefined" && navigator.vibrate) {
+            try { navigator.vibrate(50); } catch (_) {}
+          }
+        }
+      }
+    }
+
+    // 4. Two Palms confirmation
+    if (currentGesture === "two-palms") {
+      if (now - lastGrabTimeRef.current > 1200) {
+        lastGrabTimeRef.current = now;
+        handleConfirm();
+      }
+    }
+  }, [
+    isOpen,
+    handPosition,
+    currentGesture,
+    focusedZone,
+    currentFiles,
+    activeFileIndex,
+    toggleSelection,
+    handleConfirm,
+  ]);
 
   if (!isOpen) return null;
-
-  const handZone = !handPosition
-    ? "none"
-    : handPosition.x < 0.38
-    ? "left"
-    : handPosition.x > 0.62
-    ? "right"
-    : "center";
 
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 10000,
-        background: isDark ? "rgba(10, 15, 29, 0.88)" : "rgba(15, 23, 42, 0.7)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
+        zIndex: 99999,
+        background: "rgba(0, 0, 0, 0.68)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "16px",
+        padding: 16,
+        animation: "fadeIn 0.2s ease-out",
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
+      {/* Hidden native input for upload button */}
+      <input
+        ref={nativeInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleNativeFiles}
+      />
+
+      {/* Main File Explorer Window matching screenshot */}
       <div
         style={{
           width: "100%",
           maxWidth: 820,
-          background: isDark
-            ? "linear-gradient(145deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.98))"
-            : "linear-gradient(145deg, #ffffff, #f8fafc)",
-          borderRadius: 28,
-          border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(99, 102, 241, 0.2)",
+          height: "85vh",
+          maxHeight: 640,
+          background: isDark ? "#0f172a" : "#ffffff",
+          borderRadius: 14,
+          border: isDark ? "1.5px solid rgba(255,255,255,0.14)" : "1.5px solid rgba(0,0,0,0.12)",
           boxShadow: isDark
-            ? "0 24px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.25)"
-            : "0 24px 60px rgba(99, 102, 241, 0.22)",
-          overflow: "hidden",
+            ? "0 25px 60px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.2)"
+            : "0 25px 60px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(99,102,241,0.15)",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+          color: isDark ? "#f8fafc" : "#1e293b",
         }}
       >
-        {/* Top Header */}
+        {/* Title Bar */}
         <div
           style={{
-            padding: "20px 24px 14px",
-            borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+            height: 38,
+            borderBottom: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            padding: "0 14px",
+            background: isDark ? "#1e293b" : "#f1f5f9",
+            userSelect: "none",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 6px 16px rgba(99, 102, 241, 0.35)",
-              }}
-            >
-              <IconTwoPalms size={20} color="#fff" />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600 }}>
+            {/* Edge/Gestura Browser Icon */}
+            <div style={{
+              width: 18, height: 18, borderRadius: "50%",
+              background: "linear-gradient(135deg, #0ea5e9, #6366f1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, color: "#fff", fontWeight: 900
+            }}>
+              G
             </div>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: isDark ? "#f8fafc" : "#1e293b", letterSpacing: -0.3 }}>
-                Gesture File Browser
-              </h2>
-              <div style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b", marginTop: 2 }}>
-                Wave hand left/right to scroll • Closed Fist (Grab) to select
-              </div>
-            </div>
+            <span>Open &mdash; Gesture File Picker</span>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: isDark ? "rgba(255, 255, 255, 0.08)" : "#f1f5f9",
-              border: "none",
-              borderRadius: "50%",
-              width: 32,
-              height: 32,
-              color: isDark ? "#cbd5e1" : "#64748b",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 16,
-              fontWeight: 700,
-            }}
-            aria-label="Close modal"
-          >
-            ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#64748b" }}>—</span>
+            <span style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b" }}>□</span>
+            <span
+              onClick={onClose}
+              style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#64748b", cursor: "pointer", padding: "2px 6px" }}
+            >
+              ✕
+            </span>
+          </div>
         </div>
 
-        {/* Real-time Hand Optical Navigation Tracker Bar */}
+        {/* Realtime 1-Finger Gesture Guidance Banner */}
         <div
           style={{
-            padding: "8px 24px",
-            background: isDark ? "rgba(15, 23, 42, 0.6)" : "rgba(241, 245, 249, 0.7)",
-            borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid #e2e8f0",
+            background: scrollDirection === "up"
+              ? "linear-gradient(90deg, #10b981, #059669)"
+              : scrollDirection === "down"
+              ? "linear-gradient(90deg, #6366f1, #4f46e5)"
+              : isDark ? "#1e293b" : "#e0e7ff",
+            color: scrollDirection !== "idle" && scrollDirection !== "pointing" ? "#ffffff" : isDark ? "#c7d2fe" : "#3730a3",
+            padding: "6px 14px",
+            fontSize: 12,
+            fontWeight: 700,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            fontSize: 11,
-            fontWeight: 700,
-            color: isDark ? "#94a3b8" : "#64748b",
+            transition: "background 0.2s ease",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: handZone === "left" ? "#818cf8" : undefined }}>
-            <span>◀</span>
-            <span>Scroll Left ({`<`} 40%)</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 15 }}>
+              {scrollDirection === "up" ? "☝️" : scrollDirection === "down" ? "👇" : "👉"}
+            </span>
+            <span>
+              {scrollDirection === "up" && "1 FINGER UP: SCROLLING UP ▲"}
+              {scrollDirection === "down" && "1 FINGER DOWN: SCROLLING DOWN ▼"}
+              {scrollDirection === "pointing" && `POINTED AT: "${currentFiles[activeFileIndex]?.name || "Item"}"`}
+              {scrollDirection === "idle" && "Show 1 finger to point & scroll UP/DOWN • Fist grab to select"}
+            </span>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, opacity: 0.95 }}>
+            <span style={{
+              background: focusedZone === "sections" ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.12)",
+              padding: "2px 8px", borderRadius: 6
+            }}>
+              {focusedZone === "sections" ? "📂 Focus: Sidebar" : "📑 Focus: File List"}
+            </span>
+            <span>Fist = Select ({selectedFileIds.size})</span>
+          </div>
+        </div>
+
+        {/* Address & Breadcrumbs Bar matching screenshot */}
+        <div
+          style={{
+            height: 44,
+            borderBottom: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 12px",
+            gap: 8,
+            background: isDark ? "#0f172a" : "#f8fafc",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 4, color: isDark ? "#94a3b8" : "#64748b" }}>
+            <span style={{ fontSize: 16, cursor: "pointer", padding: "4px 6px" }}>←</span>
+            <span style={{ fontSize: 16, cursor: "pointer", padding: "4px 6px" }}>→</span>
+            <span style={{ fontSize: 16, cursor: "pointer", padding: "4px 6px" }}>↑</span>
+          </div>
+
+          {/* Breadcrumb box */}
           <div
             style={{
               flex: 1,
-              maxWidth: 240,
-              height: 6,
-              background: isDark ? "#334155" : "#cbd5e1",
-              borderRadius: 3,
-              margin: "0 16px",
-              position: "relative",
+              height: 28,
+              background: isDark ? "#1e293b" : "#ffffff",
+              border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #cbd5e1",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 10px",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ color: "#0ea5e9" }}>↓</span>
+            <span>{SECTIONS.find((s) => s.id === activeSectionId)?.name || "Downloads"}</span>
+            <span style={{ color: isDark ? "#64748b" : "#94a3b8" }}>&gt;</span>
+          </div>
+
+          {/* Search box */}
+          <div
+            style={{
+              width: 180,
+              height: 28,
+              background: isDark ? "#1e293b" : "#ffffff",
+              border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #cbd5e1",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 8px",
+              gap: 6,
+              fontSize: 12,
+              color: isDark ? "#94a3b8" : "#64748b",
+            }}
+          >
+            <span>🔍</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Search {SECTIONS.find((s) => s.id === activeSectionId)?.name}
+            </span>
+          </div>
+        </div>
+
+        {/* Middle Explorer Body: Left Sidebar + Files Table */}
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          {/* Left Sidebar (Sections) */}
+          <div
+            style={{
+              width: 190,
+              borderRight: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+              background: isDark ? "#111827" : "#f8fafc",
+              padding: "10px 8px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 3,
+              userSelect: "none",
+              overflowY: "auto",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8", padding: "4px 8px" }}>
+              📁 Folders / Sections
+            </div>
+
+            {SECTIONS.map((sec, idx) => {
+              const isActive = sec.id === activeSectionId;
+              const isPointerOnSection = focusedZone === "sections" && activeSectionIndex === idx;
+
+              return (
+                <div
+                  key={sec.id}
+                  onClick={() => {
+                    setActiveSectionId(sec.id);
+                    setActiveSectionIndex(idx);
+                    setFocusedZone("files");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "7px 10px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: isActive ? 700 : 500,
+                    cursor: "pointer",
+                    background: isPointerOnSection
+                      ? isDark ? "rgba(99,102,241,0.3)" : "#e0e7ff"
+                      : isActive
+                      ? isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0"
+                      : "transparent",
+                    border: isPointerOnSection ? "1.5px solid #6366f1" : "1.5px solid transparent",
+                    color: isActive ? (isDark ? "#ffffff" : "#0f172a") : (isDark ? "#94a3b8" : "#475569"),
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{sec.icon}</span>
+                  <span style={{ flex: 1 }}>{sec.name}</span>
+                  {isPointerOnSection && (
+                    <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 800 }}>👈</span>
+                  )}
+                </div>
+              );
+            })}
+
+            <div style={{ marginTop: "auto", paddingTop: 10 }}>
+              <button
+                onClick={() => nativeInputRef.current?.click()}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: isDark ? "1px dashed rgba(255,255,255,0.2)" : "1px dashed #94a3b8",
+                  background: isDark ? "rgba(255,255,255,0.04)" : "#ffffff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: isDark ? "#c7d2fe" : "#4f46e5",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <span>➕</span>
+                <span>Upload PC Files</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Main Table View matching screenshot */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              background: isDark ? "#0f172a" : "#ffffff",
               overflow: "hidden",
             }}
           >
-            {handPosition && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: `${Math.min(100, Math.max(0, handPosition.x * 100))}%`,
-                  top: 0,
-                  bottom: 0,
-                  width: 14,
-                  transform: "translateX(-50%)",
-                  background: "#6366f1",
-                  borderRadius: 3,
-                  boxShadow: "0 0 10px #6366f1",
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: handZone === "right" ? "#818cf8" : undefined }}>
-            <span>Scroll Right ({`>`} 60%)</span>
-            <span>▶</span>
-          </div>
-        </div>
-
-        {/* Carousel Row */}
-        <div
-          ref={carouselRef}
-          style={{
-            display: "flex",
-            gap: 16,
-            padding: "24px",
-            overflowX: "auto",
-            scrollBehavior: "smooth",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}
-        >
-          {/* Custom Upload Tile */}
-          <div
-            onClick={onOpenNativePicker}
-            style={{
-              flex: "0 0 180px",
-              borderRadius: 20,
-              border: isDark ? "2px dashed rgba(99, 102, 241, 0.4)" : "2px dashed #818cf8",
-              background: isDark ? "rgba(99, 102, 241, 0.06)" : "#f5f3ff",
-              padding: "20px 16px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              cursor: "pointer",
-              transition: "transform 0.2s, border-color 0.2s",
-            }}
-          >
+            {/* Table Header Columns */}
             <div
               style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                background: "rgba(99, 102, 241, 0.15)",
-                display: "flex",
+                height: 32,
+                borderBottom: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+                display: "grid",
+                gridTemplateColumns: "36px minmax(220px, 1fr) 140px 110px 80px",
                 alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 12,
-                color: "#6366f1",
-                fontSize: 22,
-                fontWeight: 800,
+                padding: "0 8px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: isDark ? "#94a3b8" : "#64748b",
+                userSelect: "none",
+                background: isDark ? "#1e293b" : "#f8fafc",
               }}
             >
-              +
+              <div></div>
+              <div>Name</div>
+              <div>Date modified</div>
+              <div>Type</div>
+              <div style={{ textAlign: "right", paddingRight: 8 }}>Size</div>
             </div>
-            <div style={{ fontWeight: 800, fontSize: 13, color: isDark ? "#f8fafc" : "#1e293b" }}>
-              Upload From Device
-            </div>
-            <div style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
-              Open OS File Explorer
-            </div>
-          </div>
 
-          {/* Preloaded Demo File Items */}
-          {PRELOADED_FILES.map((item, idx) => {
-            const isSelected = selectedIds.has(item.id);
-            const isFocused = idx === focusedIndex;
-
-            return (
+            {/* Scrollable File Rows */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "6px 8px",
+              }}
+            >
+              {/* Group label: "v Today" from screenshot */}
               <div
-                key={item.id}
-                onClick={() => {
-                  setFocusedIndex(idx);
-                  toggleSelect(item.id);
-                }}
                 style={{
-                  flex: "0 0 200px",
-                  borderRadius: 20,
-                  border: isSelected
-                    ? "2px solid #10b981"
-                    : isFocused
-                    ? "2px solid #6366f1"
-                    : isDark
-                    ? "1px solid rgba(255, 255, 255, 0.08)"
-                    : "1px solid #e2e8f0",
-                  background: isSelected
-                    ? isDark
-                      ? "rgba(16, 185, 129, 0.12)"
-                      : "#ecfdf5"
-                    : isDark
-                    ? "rgba(30, 41, 59, 0.7)"
-                    : "#ffffff",
-                  padding: "18px 16px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: isDark ? "#cbd5e1" : "#475569",
+                  padding: "4px 8px",
                   display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                  position: "relative",
-                  boxShadow: isSelected
-                    ? "0 8px 24px rgba(16, 185, 129, 0.2)"
-                    : isFocused
-                    ? "0 8px 24px rgba(99, 102, 241, 0.2)"
-                    : "0 4px 14px rgba(0, 0, 0, 0.05)",
-                  transform: isFocused ? "scale(1.02)" : "scale(1)",
-                  transition: "all 0.18s ease",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                {/* Selection Badge */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.8,
-                      padding: "3px 8px",
-                      borderRadius: 6,
-                      background: item.category === "video" ? "#ef4444" : item.category === "pdf" ? "#6366f1" : "#06b6d4",
-                      color: "#ffffff",
-                    }}
-                  >
-                    {item.category}
-                  </span>
-
-                  <div
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      border: isSelected ? "none" : "2px solid #94a3b8",
-                      background: isSelected ? "#10b981" : "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {isSelected && <IconCheckCircle size={15} color="#fff" />}
-                  </div>
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: 800,
-                      fontSize: 13,
-                      color: isDark ? "#f8fafc" : "#1e293b",
-                      lineHeight: 1.3,
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {item.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", marginTop: 4 }}>
-                    {formatBytes(item.size)}
-                  </div>
-                  <p
-                    style={{
-                      fontSize: 11,
-                      color: isDark ? "#cbd5e1" : "#475569",
-                      marginTop: 8,
-                      lineHeight: 1.4,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {item.description}
-                  </p>
-                </div>
-
-                {isFocused && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      padding: "4px 8px",
-                      borderRadius: 8,
-                      background: isDark ? "rgba(99, 102, 241, 0.2)" : "#eef2ff",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "#6366f1",
-                      textAlign: "center",
-                    }}
-                  >
-                    Fist (Grab) to Toggle
-                  </div>
-                )}
+                <span>∨</span>
+                <span>Today ({currentFiles.length} files)</span>
               </div>
-            );
-          })}
+
+              {currentFiles.map((file, idx) => {
+                const isPointed = focusedZone === "files" && activeFileIndex === idx;
+                const isSelected = selectedFileIds.has(file.id);
+
+                return (
+                  <div
+                    key={file.id}
+                    ref={isPointed ? activeRowRef : null}
+                    onClick={() => {
+                      setActiveFileIndex(idx);
+                      toggleSelection(file.id);
+                    }}
+                    style={{
+                      height: 38,
+                      display: "grid",
+                      gridTemplateColumns: "36px minmax(220px, 1fr) 140px 110px 80px",
+                      alignItems: "center",
+                      padding: "0 8px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      marginBottom: 2,
+                      userSelect: "none",
+                      position: "relative",
+                      background: isPointed
+                        ? isDark ? "rgba(99,102,241,0.28)" : "#e0e7ff"
+                        : isSelected
+                        ? isDark ? "rgba(99,102,241,0.14)" : "#eef2ff"
+                        : "transparent",
+                      border: isPointed
+                        ? "1.5px solid #6366f1"
+                        : isSelected
+                        ? isDark ? "1px solid rgba(99,102,241,0.4)" : "1px solid #c7d2fe"
+                        : "1.5px solid transparent",
+                      transition: "all 0.1s ease",
+                    }}
+                  >
+                    {/* Laser Pointer / Selection Indicator */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {isPointed ? (
+                        <span style={{ fontSize: 16, animation: "bounce 0.8s infinite" }}>👉</span>
+                      ) : isSelected ? (
+                        <div style={{
+                          width: 16, height: 16, borderRadius: 4, background: "#6366f1",
+                          color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 10, fontWeight: 800
+                        }}>
+                          ✓
+                        </div>
+                      ) : (
+                        <div style={{
+                          width: 14, height: 14, borderRadius: 3,
+                          border: isDark ? "1px solid rgba(255,255,255,0.2)" : "1px solid #cbd5e1"
+                        }} />
+                      )}
+                    </div>
+
+                    {/* Name + File Icon */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                      {getFileIcon(file.extension)}
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          fontWeight: isPointed || isSelected ? 700 : 500,
+                          color: isPointed
+                            ? (isDark ? "#ffffff" : "#1e1b4b")
+                            : isSelected
+                            ? (isDark ? "#c7d2fe" : "#4338ca")
+                            : (isDark ? "#e2e8f0" : "#1e293b"),
+                        }}
+                      >
+                        {file.name}
+                      </span>
+                    </div>
+
+                    {/* Date Modified */}
+                    <div style={{ color: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}>
+                      {file.dateModified}
+                    </div>
+
+                    {/* Type */}
+                    <div style={{
+                      color: isDark ? "#94a3b8" : "#64748b", fontSize: 11,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                    }}>
+                      {file.type}
+                    </div>
+
+                    {/* Size */}
+                    <div style={{
+                      textAlign: "right", paddingRight: 8,
+                      color: isDark ? "#94a3b8" : "#64748b", fontSize: 11, fontWeight: 600
+                    }}>
+                      {file.sizeLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Footer with Selection Count & Confirm Button */}
+        {/* Bottom Bar matching Windows Open dialog screenshot */}
         <div
           style={{
-            padding: "16px 24px",
-            borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e2e8f0",
+            height: 64,
+            borderTop: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            background: isDark ? "rgba(15, 23, 42, 0.5)" : "#f8fafc",
+            padding: "0 16px",
+            background: isDark ? "#1e293b" : "#f1f5f9",
+            gap: 12,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#cbd5e1" : "#475569" }}>
-            <span>{selectedIds.size} file(s) selected</span>
+          {/* File Name input display */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: isDark ? "#94a3b8" : "#475569", whiteSpace: "nowrap" }}>
+              File name:
+            </span>
+            <div
+              style={{
+                flex: 1,
+                maxWidth: 360,
+                height: 28,
+                background: isDark ? "#0f172a" : "#ffffff",
+                border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #cbd5e1",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                padding: "0 8px",
+                fontSize: 12,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                color: isDark ? "#f8fafc" : "#1e293b",
+              }}
+            >
+              {selectedFileIds.size > 0
+                ? `${selectedFileIds.size} file(s) selected: ${Array.from(selectedFileIds).map((id) => currentFiles.find((f) => f.id === id)?.name).filter(Boolean).join(", ")}`
+                : currentFiles[activeFileIndex]?.name || "No file selected"}
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10 }}>
+          {/* Action Buttons: Upload from mobile/PC, Open, Cancel */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
-              type="button"
+              onClick={() => nativeInputRef.current?.click()}
+              style={{
+                padding: "7px 12px",
+                borderRadius: 6,
+                border: isDark ? "1px solid rgba(255,255,255,0.14)" : "1px solid #cbd5e1",
+                background: isDark ? "#334155" : "#ffffff",
+                color: isDark ? "#f8fafc" : "#1e293b",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Upload from PC / Mobile
+            </button>
+
+            <button
+              onClick={handleConfirm}
+              style={{
+                padding: "7px 20px",
+                borderRadius: 6,
+                border: "none",
+                background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+                color: "#ffffff",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(99,102,241,0.35)",
+              }}
+            >
+              Open (Stage Files)
+            </button>
+
+            <button
               onClick={onClose}
               style={{
-                padding: "10px 18px",
-                borderRadius: 14,
-                background: isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0",
-                color: isDark ? "#cbd5e1" : "#475569",
-                border: "none",
-                fontWeight: 700,
-                fontSize: 13,
+                padding: "7px 14px",
+                borderRadius: 6,
+                border: isDark ? "1px solid rgba(255,255,255,0.14)" : "1px solid #cbd5e1",
+                background: isDark ? "#334155" : "#ffffff",
+                color: isDark ? "#f8fafc" : "#1e293b",
+                fontSize: 12,
+                fontWeight: 600,
                 cursor: "pointer",
               }}
             >
               Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={selectedIds.size === 0}
-              style={{
-                padding: "10px 22px",
-                borderRadius: 14,
-                background:
-                  selectedIds.size > 0
-                    ? "linear-gradient(135deg, #10b981, #059669)"
-                    : isDark
-                    ? "#334155"
-                    : "#cbd5e1",
-                color: "#ffffff",
-                border: "none",
-                fontWeight: 800,
-                fontSize: 13,
-                cursor: selectedIds.size > 0 ? "pointer" : "not-allowed",
-                boxShadow: selectedIds.size > 0 ? "0 4px 16px rgba(16, 185, 129, 0.4)" : "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <IconFistGrab size={14} color="#fff" />
-              <span>Confirm & Stage Files</span>
             </button>
           </div>
         </div>

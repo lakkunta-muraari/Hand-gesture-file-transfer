@@ -6,6 +6,7 @@ import { fileTransfer, type TransferProgress } from "../services/fileTransfer";
 import type { DeviceInfo } from "../types/device";
 import RoomQr from "../components/RoomQr";
 import FloatingGestureHUD from "../components/FloatingGestureHUD";
+import type { HandTrackingData } from "../components/CameraView";
 import WaterDropEffect from "../components/WaterDropEffect";
 import SendDropEffect from "../components/SendDropEffect";
 import GestureFileBrowser from "../components/GestureFileBrowser";
@@ -76,7 +77,7 @@ export default function Home() {
   }, []);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showGestureBrowser, setShowGestureBrowser] = useState(false);
-  const [handPos, setHandPos] = useState<{ x: number; y: number } | null>(null);
+  const [handPos, setHandPos] = useState<HandTrackingData | null>(null);
   const [currentRawGesture, setCurrentRawGesture] = useState<string>("none");
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
   const [isSenderReady, setIsSenderReady] = useState(false);

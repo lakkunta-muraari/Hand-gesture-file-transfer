@@ -5,11 +5,19 @@ import { GestureDebouncer } from "../vision/gestureDebouncer";
 
 export type CameraStatus = "idle" | "loading" | "ready" | "error";
 
+export interface HandTrackingData {
+  x: number;
+  y: number;
+  pointerX?: number;
+  pointerY?: number;
+  isPointing?: boolean;
+}
+
 interface Props {
   active: boolean;
   onGestureChange?: (gesture: Gesture) => void;
   onStatusChange?: (status: CameraStatus) => void;
-  onHandPosition?: (pos: { x: number; y: number } | null) => void;
+  onHandPosition?: (pos: HandTrackingData | null) => void;
   showPreview?: boolean;
   title?: string;
   subtitle?: string;
@@ -174,13 +182,44 @@ export default function CameraView({
               setDisplayGesture(stable);
               onGestureChangeRef.current?.(stable);
 
-              // Stream mirrored hand position (0.0 to 1.0) for in-app gesture scrolling
+              // Stream mirrored hand & index finger tracking for vertical gesture navigation
               if (result.landmarks && result.landmarks.length > 0 && result.landmarks[0].length > 0) {
                 const primaryHand = result.landmarks[0];
-                const rawX = primaryHand[0].x;
-                const handX = 1.0 - rawX; // Mirror X to match mirrored preview
-                const handY = primaryHand[0].y;
-                onHandPositionRef.current?.({ x: handX, y: handY });
+                const wrist = primaryHand[0];
+                const handX = 1.0 - wrist.x; // Mirror X to match mirrored preview
+                const handY = wrist.y;
+
+                const indexTip = primaryHand[8];
+                const indexPip = primaryHand[6];
+                const middleTip = primaryHand[12];
+                const middlePip = primaryHand[10];
+                const ringTip = primaryHand[16];
+                const ringPip = primaryHand[14];
+                const pinkyTip = primaryHand[20];
+                const pinkyPip = primaryHand[18];
+
+                const d = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+                  const dx = a.x - b.x;
+                  const dy = a.y - b.y;
+                  return Math.sqrt(dx * dx + dy * dy);
+                };
+
+                const indexExt = d(indexTip, wrist) > d(indexPip, wrist) * 1.08;
+                const middleFolded = d(middleTip, wrist) <= d(middlePip, wrist) * 1.15;
+                const ringFolded = d(ringTip, wrist) <= d(ringPip, wrist) * 1.15;
+                const pinkyFolded = d(pinkyTip, wrist) <= d(pinkyPip, wrist) * 1.15;
+
+                const isPointing = indexExt && middleFolded && ringFolded && pinkyFolded;
+                const pointerX = 1.0 - indexTip.x;
+                const pointerY = indexTip.y;
+
+                onHandPositionRef.current?.({
+                  x: handX,
+                  y: handY,
+                  pointerX,
+                  pointerY,
+                  isPointing,
+                });
               } else {
                 onHandPositionRef.current?.(null);
               }
