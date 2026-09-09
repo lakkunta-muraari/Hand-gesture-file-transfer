@@ -141,6 +141,8 @@ export function GestureFileBrowser({
   const folderInputRef = useRef<HTMLInputElement>(null);
   const lastScrollTimeRef = useRef<number>(0);
   const lastGrabTimeRef = useRef<number>(0);
+  const hasSeenOpenPalmRef = useRef<boolean>(false);
+  const [hasArmedOpenPalm, setHasArmedOpenPalm] = useState<boolean>(false);
   const activeRowRef = useRef<HTMLDivElement>(null);
 
   const currentFiles = folderFiles[activeSectionId] || [];
@@ -195,7 +197,7 @@ export function GestureFileBrowser({
   }, [currentFiles, selectedFileIds, activeFileIndex, onConfirmFiles]);
 
   const handleDirectGrab = useCallback((item: BrowserFileItem) => {
-    setGrabbedNotice(`File grabbed: "${item.name}". Show Two Closed Palms to clear and close.`);
+    setGrabbedNotice(`This file is grabbed: "${item.name}"`);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       try { navigator.vibrate([70, 40, 70]); } catch (_) {}
     }
@@ -312,8 +314,10 @@ export function GestureFileBrowser({
 
     const now = Date.now();
 
-    // 1. TWO CLOSED PALMS: Close picker
+    // 1. TWO CLOSED PALMS: Close picker & reset
     if (currentGesture === "two-closed-palms") {
+      hasSeenOpenPalmRef.current = false;
+      setHasArmedOpenPalm(false);
       if (now - lastGrabTimeRef.current > 600) {
         lastGrabTimeRef.current = now;
         onClose();
@@ -321,13 +325,25 @@ export function GestureFileBrowser({
       return;
     }
 
-    // 2. FIST: Grab pointed file
+    // Arming step: User shows OPEN PALM first
+    if (currentGesture === "open-palm") {
+      if (!hasSeenOpenPalmRef.current) {
+        hasSeenOpenPalmRef.current = true;
+        setHasArmedOpenPalm(true);
+      }
+    }
+
+    // 2. FIST: Only grab if user previously showed OPEN PALM
     if (currentGesture === "fist") {
-      if (now - lastGrabTimeRef.current > 800) {
-        lastGrabTimeRef.current = now;
-        const target = currentFiles[activeFileIndex] || currentFiles[0];
-        if (target) {
-          handleDirectGrab(target);
+      if (hasSeenOpenPalmRef.current) {
+        if (now - lastGrabTimeRef.current > 800) {
+          lastGrabTimeRef.current = now;
+          hasSeenOpenPalmRef.current = false;
+          setHasArmedOpenPalm(false);
+          const target = currentFiles[activeFileIndex] || currentFiles[0];
+          if (target) {
+            handleDirectGrab(target);
+          }
         }
       }
       return;
@@ -552,8 +568,10 @@ export function GestureFileBrowser({
             }}>
               {currentGesture === "two-closed-palms"
                 ? "TWO CLOSED PALMS"
-                : currentGesture === "fist"
-                ? "CLOSED FIST"
+                : currentGesture === "fist" && hasArmedOpenPalm
+                ? "GRABBED (FIST)"
+                : currentGesture === "open-palm" || hasArmedOpenPalm
+                ? "PALM OPENED - READY TO GRAB"
                 : scrollDirection === "up"
                 ? "SCROLL UP"
                 : scrollDirection === "down"
@@ -561,15 +579,17 @@ export function GestureFileBrowser({
                 : "READY"}
             </span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-              {currentGesture === "fist"
-                ? "Grab pointed file directly into sender hand!"
+              {hasArmedOpenPalm && currentGesture === "fist"
+                ? "Grabbed! File is now attached to sender hand."
+                : hasArmedOpenPalm
+                ? "Open Palm registered! Now close into FIST to grab pointed file."
                 : currentGesture === "two-closed-palms"
                 ? "Clearing stage and closing file explorer..."
                 : scrollDirection === "up"
                 ? "Scrolling UP (2 fingers elevated)"
                 : scrollDirection === "down"
                 ? "Scrolling DOWN (2 fingers lowered)"
-                : "2 fingers (index+middle) to scroll | Fist to Grab | 2 Closed Palms to Exit"}
+                : "Open Palm then Close (Fist) to Grab file | 2 fingers to scroll | 2 Closed Palms to Exit"}
             </span>
           </div>
 
