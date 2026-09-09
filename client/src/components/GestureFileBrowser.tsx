@@ -390,10 +390,11 @@ export default function GestureFileBrowser({
 
     // ── FIST / CLOSED PALM: Grab pointed file & trigger sender water effect ──
     if (currentGesture === "fist") {
-      if (now - lastGrabTimeRef.current > 1000) {
+      if (now - lastGrabTimeRef.current > 800) {
         lastGrabTimeRef.current = now;
-        if (focusedZone === "files" && currentFiles[activeFileIndex]) {
-          handleDirectGrab(currentFiles[activeFileIndex]);
+        const target = currentFiles[activeFileIndex] || currentFiles[0];
+        if (target) {
+          handleDirectGrab(target);
         }
       }
       return;

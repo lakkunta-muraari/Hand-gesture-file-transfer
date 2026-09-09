@@ -482,7 +482,8 @@ export default function Home() {
   }, [isSenderReady, openFileSelector, handleSenderGrab, showToast]);
 
   const handleRawGesture = useCallback((gesture: Gesture) => {
-    setCurrentRawGesture(gesture.name);
+    const rawName = typeof gesture === "string" ? gesture : (gesture as any)?.name || "none";
+    setCurrentRawGesture(rawName);
   }, []);
 
   return (
