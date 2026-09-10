@@ -247,14 +247,35 @@ export function GestureFileBrowser({
     onConfirmFiles(chosen, autoGrab);
   }, [currentFiles, selectedFileIds, activeFileIndex, onConfirmFiles]);
 
-  const handleDirectGrab = useCallback((item: BrowserFileItem) => {
-    setGrabbedNotice(`This file is grabbed: "${item.name}"`);
+  const handleDirectGrab = useCallback((item?: BrowserFileItem) => {
+    // If user has multi-selected files with the checkbox, grab all selected files!
+    const chosen: File[] = [];
+    currentFiles.forEach((f) => {
+      if (selectedFileIds.has(f.id)) {
+        chosen.push(makeRealFile(f));
+      }
+    });
+
+    // If no multi-selection, grab the specifically highlighted item
+    if (chosen.length === 0) {
+      const target = item || currentFiles[activeFileIndex];
+      if (target) {
+        chosen.push(makeRealFile(target));
+      }
+    }
+
+    if (chosen.length === 0) return;
+
+    const noticeText = chosen.length === 1
+      ? `This file is grabbed: "${chosen[0].name}"`
+      : `${chosen.length} files grabbed from folder! Ready to send.`;
+
+    setGrabbedNotice(noticeText);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       try { navigator.vibrate([70, 40, 70]); } catch (_) {}
     }
-    const realFile = makeRealFile(item);
-    onConfirmFiles([realFile], true);
-  }, [onConfirmFiles]);
+    onConfirmFiles(chosen, true);
+  }, [currentFiles, selectedFileIds, activeFileIndex, onConfirmFiles]);
 
   // File System Access API: Pick real folder from phone or desktop!
   const handleOpenRealDirectory = async () => {
@@ -368,6 +389,19 @@ export function GestureFileBrowser({
     });
   }, []);
 
+  const handleSelectAllInFolder = useCallback(() => {
+    setSelectedFileIds((prev) => {
+      const allSelected = currentFiles.length > 0 && currentFiles.every((f) => prev.has(f.id));
+      const next = new Set(prev);
+      if (allSelected) {
+        currentFiles.forEach((f) => next.delete(f.id));
+      } else {
+        currentFiles.forEach((f) => next.add(f.id));
+      }
+      return next;
+    });
+  }, [currentFiles]);
+
   // Gesture Controls: 2-Finger Scroll & Fist Grab & Two Closed Palms
   useEffect(() => {
     if (!isOpen) return;
@@ -409,28 +443,51 @@ export function GestureFileBrowser({
       return;
     }
 
-    // 3. 2-FINGER SCROLL: smooth, calibrated pacing (450ms cooldown) so user can stop exactly at desired file!
+    // 3. 2-FINGER GESTURE NAVIGATION:
+    // Move LEFT -> Focus folders/sections sidebar
+    // Move RIGHT -> Focus files table
+    // Move UP / DOWN -> Navigate highlighted folder or file cleanly (450ms pacing)
     if (handPosition?.isTwoFingerScroll) {
-      // Use indexTip y if available for natural intuitive finger position, else hand wrist y
+      const fingerX = handPosition.pointerX !== undefined ? handPosition.pointerX : handPosition.x;
       const fingerY = handPosition.pointerY !== undefined ? handPosition.pointerY : handPosition.y;
 
-      // Deadzone between 0.38 and 0.60 to stay stopped/locked at current file
+      // Horizontal Navigation: Left vs Right
+      if (fingerX < 0.35 && focusedZone !== "sections") {
+        setFocusedZone("sections");
+      } else if (fingerX > 0.55 && focusedZone !== "files") {
+        setFocusedZone("files");
+      }
+
+      // Vertical Navigation: Up vs Down depending on focusedZone
       if (fingerY < 0.38) {
-        // Two fingers raised UP -> Scroll UP (moves selection to previous item)
         setScrollDirection("up");
         if (now - lastScrollTimeRef.current > 450) {
           lastScrollTimeRef.current = now;
-          setActiveFileIndex((prev) => Math.max(0, prev - 1));
+          if (focusedZone === "sections") {
+            setActiveSectionIndex((prev) => {
+              const nextIdx = Math.max(0, prev - 1);
+              setActiveSectionId(SECTIONS[nextIdx]?.id || "downloads");
+              return nextIdx;
+            });
+          } else {
+            setActiveFileIndex((prev) => Math.max(0, prev - 1));
+          }
         }
       } else if (fingerY > 0.60) {
-        // Two fingers lowered DOWN -> Scroll DOWN (moves selection to next item)
         setScrollDirection("down");
         if (now - lastScrollTimeRef.current > 450) {
           lastScrollTimeRef.current = now;
-          setActiveFileIndex((prev) => Math.min(currentFiles.length - 1, prev + 1));
+          if (focusedZone === "sections") {
+            setActiveSectionIndex((prev) => {
+              const nextIdx = Math.min(SECTIONS.length - 1, prev + 1);
+              setActiveSectionId(SECTIONS[nextIdx]?.id || "downloads");
+              return nextIdx;
+            });
+          } else {
+            setActiveFileIndex((prev) => Math.min(currentFiles.length - 1, prev + 1));
+          }
         }
       } else {
-        // Hand in center neutral zone (0.38 - 0.60) -> STOPPED at selected file!
         setScrollDirection("idle");
       }
     } else {
@@ -654,7 +711,7 @@ export function GestureFileBrowser({
                 ? "Scrolling UP (2 fingers elevated)"
                 : scrollDirection === "down"
                 ? "Scrolling DOWN (2 fingers lowered)"
-                : "Open Palm then Close (Fist) to Grab file | 2 fingers to scroll | 2 Closed Palms to Exit"}
+                : "2 fingers Left = Folders, Right = Files | 2 fingers Up/Down = Scroll | Palm then Fist = Grab"}
             </span>
           </div>
 
@@ -842,10 +899,10 @@ export function GestureFileBrowser({
               overflow: "hidden",
             }}
           >
-            {/* Table Header Columns */}
+            {/* Table Header Columns with Multi-Select checkbox */}
             <div
               style={{
-                height: 32,
+                height: 34,
                 borderBottom: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
                 display: "grid",
                 gridTemplateColumns: isMobile ? "28px 1fr 70px" : "36px minmax(180px, 1fr) 130px 100px 75px",
@@ -859,8 +916,21 @@ export function GestureFileBrowser({
                 flexShrink: 0,
               }}
             >
-              <div></div>
-              <div>Name</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <input
+                  type="checkbox"
+                  title="Select / Deselect all files in folder"
+                  checked={currentFiles.length > 0 && currentFiles.every((f) => selectedFileIds.has(f.id))}
+                  onChange={handleSelectAllInFolder}
+                  style={{ cursor: "pointer" }}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span>Name</span>
+                <span style={{ fontSize: 10, color: "#6366f1", fontWeight: 700, cursor: "pointer" }} onClick={handleSelectAllInFolder}>
+                  (Select All)
+                </span>
+              </div>
               {!isMobile && <div>Date modified</div>}
               {!isMobile && <div>Type</div>}
               <div style={{ textAlign: "right", paddingRight: 8 }}>Size</div>
@@ -1065,10 +1135,26 @@ export function GestureFileBrowser({
 
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
+              onClick={handleSelectAllInFolder}
+              title="Select all files in this folder to send together"
+              style={{
+                padding: isMobile ? "6px 8px" : "7px 12px",
+                borderRadius: 6,
+                border: "1px solid #6366f1",
+                background: "transparent",
+                color: isDark ? "#c7d2fe" : "#4f46e5",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Select All Folder
+            </button>
+
+            <button
               onClick={() => {
-                if (currentFiles[activeFileIndex]) {
-                  handleDirectGrab(currentFiles[activeFileIndex]);
-                }
+                handleDirectGrab();
               }}
               style={{
                 padding: isMobile ? "6px 10px" : "7px 16px",
@@ -1083,7 +1169,7 @@ export function GestureFileBrowser({
                 whiteSpace: "nowrap",
               }}
             >
-              Grab (Fist)
+              {selectedFileIds.size > 1 ? `Grab (${selectedFileIds.size} Files)` : "Grab (Fist)"}
             </button>
 
             <button
