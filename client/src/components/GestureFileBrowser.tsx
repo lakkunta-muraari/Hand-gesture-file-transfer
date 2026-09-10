@@ -122,9 +122,60 @@ export function GestureFileBrowser({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Navigation state
-  const [activeSectionId, setActiveSectionId] = useState<string>("downloads");
-  const [folderFiles, setFolderFiles] = useState<Record<string, BrowserFileItem[]>>(FOLDER_PRESETS);
+  // Storage key for persistent uploaded files on this device
+  const STORAGE_KEY = "gestura_saved_device_files_v1";
+
+  // Navigation state with local storage persistence
+  const [activeSectionId, setActiveSectionId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("gestura_active_section");
+      return saved || "downloads";
+    } catch {
+      return "downloads";
+    }
+  });
+
+  const [folderFiles, setFolderFiles] = useState<Record<string, BrowserFileItem[]>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...FOLDER_PRESETS,
+          real: parsed.real || [],
+          downloads: [...(parsed.downloads || []), ...FOLDER_PRESETS.downloads],
+          documents: [...(parsed.documents || []), ...FOLDER_PRESETS.documents],
+          pictures: [...(parsed.pictures || []), ...FOLDER_PRESETS.pictures],
+          videos: [...(parsed.videos || []), ...FOLDER_PRESETS.videos],
+          desktop: [...(parsed.desktop || []), ...FOLDER_PRESETS.desktop],
+        };
+      }
+    } catch (e) {
+      console.warn("Could not restore saved files from localStorage", e);
+    }
+    return FOLDER_PRESETS;
+  });
+
+  // Persist files to localStorage whenever folderFiles changes
+  const saveFolderFilesToStorage = (updated: Record<string, BrowserFileItem[]>) => {
+    try {
+      const serializable: Record<string, any[]> = {};
+      Object.keys(updated).forEach((sec) => {
+        serializable[sec] = updated[sec].map((item) => ({
+          id: item.id,
+          name: item.name,
+          dateModified: item.dateModified,
+          type: item.type,
+          sizeBytes: item.sizeBytes,
+          sizeLabel: item.sizeLabel,
+          extension: item.extension,
+        }));
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+    } catch (err) {
+      console.warn("Could not save files to localStorage", err);
+    }
+  };
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   // Focus and cursor state
@@ -241,12 +292,17 @@ export function GestureFileBrowser({
         }
 
         if (files.length > 0) {
-          setFolderFiles((prev) => ({
-            ...prev,
-            real: files,
-          }));
+          setFolderFiles((prev) => {
+            const next = {
+              ...prev,
+              real: [...files, ...(prev.real || []).filter((old) => !files.some((nf) => nf.name === old.name))],
+            };
+            saveFolderFilesToStorage(next);
+            return next;
+          });
           setActiveSectionId("real");
           setActiveFileIndex(0);
+          try { localStorage.setItem("gestura_active_section", "real"); } catch {}
         }
         setIsLoadingDirectory(false);
       } else {
@@ -281,11 +337,15 @@ export function GestureFileBrowser({
       };
     });
 
-    setFolderFiles((prev) => ({
-      ...prev,
-      real: [...newItems, ...(prev.real || [])],
-      [activeSectionId]: [...newItems, ...(prev[activeSectionId] || [])],
-    }));
+    setFolderFiles((prev) => {
+      const next = {
+        ...prev,
+        real: [...newItems, ...(prev.real || [])],
+        [activeSectionId]: [...newItems, ...(prev[activeSectionId] || [])],
+      };
+      saveFolderFilesToStorage(next);
+      return next;
+    });
 
     setSelectedFileIds((prev) => {
       const next = new Set(prev);
@@ -349,23 +409,28 @@ export function GestureFileBrowser({
       return;
     }
 
-    // 3. 2-FINGER SCROLL
+    // 3. 2-FINGER SCROLL: smooth, calibrated pacing (450ms cooldown) so user can stop exactly at desired file!
     if (handPosition?.isTwoFingerScroll) {
-      const y = handPosition.y;
+      // Use indexTip y if available for natural intuitive finger position, else hand wrist y
+      const fingerY = handPosition.pointerY !== undefined ? handPosition.pointerY : handPosition.y;
 
-      if (y < 0.42) {
+      // Deadzone between 0.38 and 0.60 to stay stopped/locked at current file
+      if (fingerY < 0.38) {
+        // Two fingers raised UP -> Scroll UP (moves selection to previous item)
         setScrollDirection("up");
-        if (now - lastScrollTimeRef.current > 180) {
+        if (now - lastScrollTimeRef.current > 450) {
           lastScrollTimeRef.current = now;
           setActiveFileIndex((prev) => Math.max(0, prev - 1));
         }
-      } else if (y > 0.58) {
+      } else if (fingerY > 0.60) {
+        // Two fingers lowered DOWN -> Scroll DOWN (moves selection to next item)
         setScrollDirection("down");
-        if (now - lastScrollTimeRef.current > 180) {
+        if (now - lastScrollTimeRef.current > 450) {
           lastScrollTimeRef.current = now;
           setActiveFileIndex((prev) => Math.min(currentFiles.length - 1, prev + 1));
         }
       } else {
+        // Hand in center neutral zone (0.38 - 0.60) -> STOPPED at selected file!
         setScrollDirection("idle");
       }
     } else {
