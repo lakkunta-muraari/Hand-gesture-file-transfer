@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { HandTrackingData } from "./CameraView";
 import { useTheme } from "../utils/useTheme";
+import {
+  saveRealFilesToIDB,
+  loadAllRealFilesFromIDB,
+  deleteRealFileFromIDB,
+  clearSectionRealFiles,
+  type StoredRealFile,
+} from "../services/realFileStore";
 
 export interface GestureFileBrowserProps {
   isOpen: boolean;
@@ -177,6 +184,50 @@ export function GestureFileBrowser({
       console.warn("Could not save files to localStorage", err);
     }
   };
+  // Load permanent real device files from IndexedDB on startup
+  useEffect(() => {
+    loadAllRealFilesFromIDB()
+      .then((grouped) => {
+        setFolderFiles((prev) => {
+          const updated: Record<string, BrowserFileItem[]> = { ...prev };
+          const allRealList: BrowserFileItem[] = [];
+
+          Object.keys(grouped).forEach((sec) => {
+            const list = grouped[sec] || [];
+            const mappedItems: BrowserFileItem[] = list.map((rf) => {
+              const ext = rf.name.split(".").pop()?.toLowerCase() || "other";
+              const validExt: BrowserFileItem["extension"] = ["pdf", "docx", "png", "jpg", "mp4", "zip"].includes(ext)
+                ? (ext as BrowserFileItem["extension"])
+                : "other";
+              return {
+                id: rf.id,
+                name: rf.name,
+                dateModified: rf.dateModified,
+                type: rf.type,
+                sizeBytes: rf.sizeBytes,
+                sizeLabel: rf.sizeLabel,
+                extension: validExt,
+                actualFile: rf.file,
+                isDemo: false,
+              };
+            });
+
+            // Put real files at the top of their respective section
+            const presetItems = (FOLDER_PRESETS[sec] || []).filter(
+              (p) => !mappedItems.some((m) => m.name === p.name)
+            );
+            updated[sec] = [...mappedItems, ...presetItems];
+            allRealList.push(...mappedItems);
+          });
+
+          // Ensure the "real" section has all real uploaded files
+          updated.real = allRealList;
+          return updated;
+        });
+      })
+      .catch((err) => console.warn("[GFB] Could not load IDB files:", err));
+  }, []);
+
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   // Focus and cursor state
@@ -364,6 +415,14 @@ export function GestureFileBrowser({
         }
 
         if (files.length > 0) {
+          // Persist all gathered real files to IndexedDB
+          const realFileObjects = files.map((f) => f.actualFile).filter(Boolean) as File[];
+          if (realFileObjects.length > 0) {
+            saveRealFilesToIDB("real", realFileObjects).catch((err) =>
+              console.warn("[GFB] Could not save directory files to IDB:", err)
+            );
+          }
+
           setFolderFiles((prev) => {
             const next = {
               ...prev,
@@ -385,6 +444,29 @@ export function GestureFileBrowser({
       console.log("Directory picker cancelled or unsupported:", err);
     }
   };
+
+  // Delete a saved real file from IndexedDB and current view
+  const handleDeleteFile = useCallback(async (e: React.MouseEvent, file: BrowserFileItem) => {
+    e.stopPropagation();
+    try {
+      await deleteRealFileFromIDB(file.id);
+    } catch (err) {
+      console.warn("[GFB] Error deleting file from IDB:", err);
+    }
+    setFolderFiles((prev) => {
+      const updated: Record<string, BrowserFileItem[]> = {};
+      Object.keys(prev).forEach((sec) => {
+        updated[sec] = prev[sec].filter((it) => it.id !== file.id);
+      });
+      saveFolderFilesToStorage(updated);
+      return updated;
+    });
+    setSelectedFileIds((prev) => {
+      const next = new Set(prev);
+      next.delete(file.id);
+      return next;
+    });
+  }, []);
 
   // Handle native file selection
   const handleNativeFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -409,11 +491,21 @@ export function GestureFileBrowser({
       };
     });
 
+    // Save to IndexedDB so files persist FOREVER on this device!
+    saveRealFilesToIDB(activeSectionId, Array.from(files))
+      .then((savedEntries) => {
+        // Also add to the "real" master section in IDB if not already in real
+        if (activeSectionId !== "real") {
+          saveRealFilesToIDB("real", Array.from(files)).catch(() => {});
+        }
+      })
+      .catch((err) => console.warn("[GFB] Failed to save files to IDB:", err));
+
     setFolderFiles((prev) => {
       const next = {
         ...prev,
-        real: [...newItems, ...(prev.real || [])],
-        [activeSectionId]: [...newItems, ...(prev[activeSectionId] || [])],
+        real: [...newItems, ...(prev.real || []).filter((old) => !newItems.some((ni) => ni.name === old.name))],
+        [activeSectionId]: [...newItems, ...(prev[activeSectionId] || []).filter((old) => !newItems.some((ni) => ni.name === old.name))],
       };
       saveFolderFilesToStorage(next);
       return next;
@@ -1135,7 +1227,7 @@ export function GestureFileBrowser({
                         >
                           {file.name}
                         </span>
-                        {file.isDemo && (
+                        {file.isDemo ? (
                           <span style={{
                             fontSize: 9,
                             fontWeight: 800,
@@ -1147,6 +1239,20 @@ export function GestureFileBrowser({
                             letterSpacing: 0.4,
                           }}>
                             DEMO
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontSize: 9,
+                            fontWeight: 800,
+                            color: "#10b981",
+                            border: "1px solid rgba(16,185,129,0.5)",
+                            background: isDark ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.1)",
+                            borderRadius: 3,
+                            padding: "0px 4px",
+                            flexShrink: 0,
+                            letterSpacing: 0.4,
+                          }}>
+                            DEVICE
                           </span>
                         )}
                       </div>
@@ -1171,15 +1277,40 @@ export function GestureFileBrowser({
                         </div>
                       )}
 
-                      {/* Size */}
+                      {/* Size + Delete */}
                       <div style={{
-                        textAlign: "right",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        gap: 6,
                         paddingRight: 8,
-                        color: isDark ? "#94a3b8" : "#64748b",
-                        fontSize: 11,
-                        fontWeight: 600,
                       }}>
-                        {file.sizeLabel}
+                        <span style={{
+                          color: isDark ? "#94a3b8" : "#64748b",
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}>
+                          {file.sizeLabel}
+                        </span>
+                        {!file.isDemo && (
+                          <button
+                            onClick={(e) => handleDeleteFile(e, file)}
+                            title="Remove file from this device"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: isDark ? "#ef4444" : "#dc2626",
+                              cursor: "pointer",
+                              padding: "2px 4px",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              borderRadius: 4,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ?
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
