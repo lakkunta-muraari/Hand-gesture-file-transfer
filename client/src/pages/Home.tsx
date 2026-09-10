@@ -77,7 +77,11 @@ export default function Home() {
   }, []);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showGestureBrowser, setShowGestureBrowser] = useState(false);
+  const showGestureBrowserRef = useRef(false);
   const [handPos, setHandPos] = useState<HandTrackingData | null>(null);
+  useEffect(() => {
+    showGestureBrowserRef.current = showGestureBrowser;
+  }, [showGestureBrowser]);
   const [currentRawGesture, setCurrentRawGesture] = useState<string>("none");
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
     const [pickerActiveDevice, setPickerActiveDevice] = useState<{ id: string; name: string } | null>(null);
@@ -212,12 +216,15 @@ export default function Home() {
         setActiveSender(null);
         showToast("Files cleared. Any device can now select files.", 3000);
       } else if (data.kind === "receiver-ready") {
+        // Only the designated sender should respond to receiver-ready
+        if (data.senderId && data.senderId !== signaling.selfId) return;
         if (stagedFilesRef.current.length > 0 && (isSenderReady || isSenderReadyRef.current)) {
           const targetPeerId = data.receiverId;
           const filesToSend = [...stagedFilesRef.current];
           const count = filesToSend.length;
           showToast(`Transferring ${count} file${count > 1 ? "s" : ""} to ${data.receiverName}...`, 3000);
-          fileTransfer.sendFiles(targetPeerId, filesToSend, (file, idx, total) => {
+          // Snapshot staged files and send them (prevents re-send if state changes)
+          fileTransfer.sendFiles(targetPeerId, [...filesToSend], (file, idx, total) => {
             showToast(`Sent ${file.name} (${idx}/${total})`, 2500);
           }).catch((err) => {
             console.error("Transfer error:", err);
@@ -471,10 +478,14 @@ export default function Home() {
       });
       showToast("Two Closed Palms: File picker closed and stage cleared. Any device can now be sender.", 4000);
     } else if (action === "grab") {
-      if (stagedFilesRef.current.length > 0 && !isSenderReady) {
+      // When the gesture file browser is open, it handles grab gestures internally.
+      // Do NOT also fire handleSenderGrab from here to prevent double water effects.
+      if (!showGestureBrowserRef.current && stagedFilesRef.current.length > 0 && !isSenderReady) {
         handleSenderGrab();
       }
     } else if (action === "release") {
+      // When the gesture file browser is open, ignore release (it's handled inside the browser)
+      if (showGestureBrowserRef.current) return;
       if (activeSenderRef.current && activeSenderRef.current.senderId !== signaling.selfId) {
         if (activeSenderRef.current.readyToSend) {
           showToast(`Requesting "${activeSenderRef.current.fileName}" from ${activeSenderRef.current.senderName}...`, 3000);

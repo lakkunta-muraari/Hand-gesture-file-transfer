@@ -393,7 +393,6 @@ class FileTransferService {
           startedAt: state.startedAt,
         });
 
-        this.triggerDownload(blob, state.meta.name);
         break;
       }
 

@@ -21,6 +21,7 @@ interface BrowserFileItem {
   sizeLabel: string;
   extension: "pdf" | "docx" | "png" | "jpg" | "mp4" | "zip" | "other";
   actualFile?: File;
+  isDemo?: boolean; // true = placeholder/demo file, cannot be sent
 }
 
 interface SectionFolder {
@@ -42,30 +43,30 @@ const SECTIONS: SectionFolder[] = [
 const FOLDER_PRESETS: Record<string, BrowserFileItem[]> = {
   real: [],
   downloads: [
-    { id: "dl-1", name: "University_Lost_and_Found_Abstract.pdf", dateModified: "09-09-2026 14:50", type: "PDF Document", sizeBytes: 2516582, sizeLabel: "2.4 MB", extension: "pdf" },
-    { id: "dl-2", name: "ilovepdf_merged (1).pdf", dateModified: "09-09-2026 14:40", type: "PDF Document", sizeBytes: 5033164, sizeLabel: "4.8 MB", extension: "pdf" },
-    { id: "dl-3", name: "ilovepdf_merged.docx", dateModified: "09-09-2026 14:39", type: "Microsoft Word Document", sizeBytes: 1258291, sizeLabel: "1.2 MB", extension: "docx" },
-    { id: "dl-4", name: "ilovepdf_merged.pdf", dateModified: "09-09-2026 14:39", type: "PDF Document", sizeBytes: 4194304, sizeLabel: "4.0 MB", extension: "pdf" },
-    { id: "dl-5", name: "GESTURA_Architecture_v2.pdf", dateModified: "08-09-2026 11:20", type: "PDF Document", sizeBytes: 3145728, sizeLabel: "3.0 MB", extension: "pdf" },
-    { id: "dl-6", name: "WebRTC_P2P_Benchmark_Report.pdf", dateModified: "07-09-2026 09:15", type: "PDF Document", sizeBytes: 1887436, sizeLabel: "1.8 MB", extension: "pdf" },
+    { id: "dl-1", name: "University_Lost_and_Found_Abstract.pdf", dateModified: "09-09-2026 14:50", type: "PDF Document", sizeBytes: 2516582, sizeLabel: "2.4 MB", extension: "pdf", isDemo: true },
+    { id: "dl-2", name: "ilovepdf_merged (1).pdf", dateModified: "09-09-2026 14:40", type: "PDF Document", sizeBytes: 5033164, sizeLabel: "4.8 MB", extension: "pdf", isDemo: true },
+    { id: "dl-3", name: "ilovepdf_merged.docx", dateModified: "09-09-2026 14:39", type: "Microsoft Word Document", sizeBytes: 1258291, sizeLabel: "1.2 MB", extension: "docx", isDemo: true },
+    { id: "dl-4", name: "ilovepdf_merged.pdf", dateModified: "09-09-2026 14:39", type: "PDF Document", sizeBytes: 4194304, sizeLabel: "4.0 MB", extension: "pdf", isDemo: true },
+    { id: "dl-5", name: "GESTURA_Architecture_v2.pdf", dateModified: "08-09-2026 11:20", type: "PDF Document", sizeBytes: 3145728, sizeLabel: "3.0 MB", extension: "pdf", isDemo: true },
+    { id: "dl-6", name: "WebRTC_P2P_Benchmark_Report.pdf", dateModified: "07-09-2026 09:15", type: "PDF Document", sizeBytes: 1887436, sizeLabel: "1.8 MB", extension: "pdf", isDemo: true },
   ],
   documents: [
-    { id: "doc-1", name: "Project_Proposal_Final.docx", dateModified: "09-09-2026 10:30", type: "Microsoft Word Document", sizeBytes: 891289, sizeLabel: "870 KB", extension: "docx" },
-    { id: "doc-2", name: "Meeting_Notes_Sprint14.pdf", dateModified: "08-09-2026 16:45", type: "PDF Document", sizeBytes: 421000, sizeLabel: "411 KB", extension: "pdf" },
-    { id: "doc-3", name: "Network_Security_Audit.pdf", dateModified: "06-09-2026 13:10", type: "PDF Document", sizeBytes: 2097152, sizeLabel: "2.0 MB", extension: "pdf" },
+    { id: "doc-1", name: "Project_Proposal_Final.docx", dateModified: "09-09-2026 10:30", type: "Microsoft Word Document", sizeBytes: 891289, sizeLabel: "870 KB", extension: "docx", isDemo: true },
+    { id: "doc-2", name: "Meeting_Notes_Sprint14.pdf", dateModified: "08-09-2026 16:45", type: "PDF Document", sizeBytes: 421000, sizeLabel: "411 KB", extension: "pdf", isDemo: true },
+    { id: "doc-3", name: "Network_Security_Audit.pdf", dateModified: "06-09-2026 13:10", type: "PDF Document", sizeBytes: 2097152, sizeLabel: "2.0 MB", extension: "pdf", isDemo: true },
   ],
   pictures: [
-    { id: "pic-1", name: "Hand_Tracking_Landmarks.png", dateModified: "09-09-2026 12:00", type: "PNG Image", sizeBytes: 1572864, sizeLabel: "1.5 MB", extension: "png" },
-    { id: "pic-2", name: "Demo_Presentation_Slide1.png", dateModified: "08-09-2026 18:30", type: "PNG Image", sizeBytes: 943718, sizeLabel: "922 KB", extension: "png" },
-    { id: "pic-3", name: "System_Diagram.png", dateModified: "07-09-2026 15:40", type: "PNG Image", sizeBytes: 2359296, sizeLabel: "2.25 MB", extension: "png" },
+    { id: "pic-1", name: "Hand_Tracking_Landmarks.png", dateModified: "09-09-2026 12:00", type: "PNG Image", sizeBytes: 1572864, sizeLabel: "1.5 MB", extension: "png", isDemo: true },
+    { id: "pic-2", name: "Demo_Presentation_Slide1.png", dateModified: "08-09-2026 18:30", type: "PNG Image", sizeBytes: 943718, sizeLabel: "922 KB", extension: "png", isDemo: true },
+    { id: "pic-3", name: "System_Diagram.png", dateModified: "07-09-2026 15:40", type: "PNG Image", sizeBytes: 2359296, sizeLabel: "2.25 MB", extension: "png", isDemo: true },
   ],
   videos: [
-    { id: "vid-1", name: "Gesture_Transfer_Demo_60fps.mp4", dateModified: "09-09-2026 14:15", type: "MP4 Video", sizeBytes: 8388608, sizeLabel: "8.0 MB", extension: "mp4" },
-    { id: "vid-2", name: "MediaPipe_Hand_Tracking_Test.mp4", dateModified: "08-09-2026 17:00", type: "MP4 Video", sizeBytes: 6291456, sizeLabel: "6.0 MB", extension: "mp4" },
+    { id: "vid-1", name: "Gesture_Transfer_Demo_60fps.mp4", dateModified: "09-09-2026 14:15", type: "MP4 Video", sizeBytes: 8388608, sizeLabel: "8.0 MB", extension: "mp4", isDemo: true },
+    { id: "vid-2", name: "MediaPipe_Hand_Tracking_Test.mp4", dateModified: "08-09-2026 17:00", type: "MP4 Video", sizeBytes: 6291456, sizeLabel: "6.0 MB", extension: "mp4", isDemo: true },
   ],
   desktop: [
-    { id: "dsk-1", name: "quick_notes.txt", dateModified: "09-09-2026 15:00", type: "Text Document", sizeBytes: 4096, sizeLabel: "4 KB", extension: "other" },
-    { id: "dsk-2", name: "Railway_Deploy_Configs.zip", dateModified: "08-09-2026 21:00", type: "ZIP Archive", sizeBytes: 3145728, sizeLabel: "3.0 MB", extension: "zip" },
+    { id: "dsk-1", name: "quick_notes.txt", dateModified: "09-09-2026 15:00", type: "Text Document", sizeBytes: 4096, sizeLabel: "4 KB", extension: "other", isDemo: true },
+    { id: "dsk-2", name: "Railway_Deploy_Configs.zip", dateModified: "08-09-2026 21:00", type: "ZIP Archive", sizeBytes: 3145728, sizeLabel: "3.0 MB", extension: "zip", isDemo: true },
   ],
 };
 
@@ -186,6 +187,7 @@ export function GestureFileBrowser({
   // Gesture scroll state
   const [scrollDirection, setScrollDirection] = useState<"up" | "down" | "pointing" | "idle">("idle");
   const [grabbedNotice, setGrabbedNotice] = useState<string | null>(null);
+  const [demoFileWarning, setDemoFileWarning] = useState<string | null>(null);
   const [isLoadingDirectory, setIsLoadingDirectory] = useState<boolean>(false);
 
   const nativeInputRef = useRef<HTMLInputElement>(null);
@@ -234,41 +236,90 @@ export function GestureFileBrowser({
 
   const handleConfirm = useCallback((autoGrab: boolean = false) => {
     const chosen: File[] = [];
+    const demoNames: string[] = [];
+
     currentFiles.forEach((item) => {
       if (selectedFileIds.has(item.id)) {
-        chosen.push(makeRealFile(item));
+        if (item.actualFile) {
+          chosen.push(item.actualFile);
+        } else if (item.isDemo) {
+          demoNames.push(item.name);
+        } else {
+          chosen.push(makeRealFile(item));
+        }
       }
     });
 
-    if (chosen.length === 0 && currentFiles[activeFileIndex]) {
-      chosen.push(makeRealFile(currentFiles[activeFileIndex]));
+    if (chosen.length === 0 && demoNames.length === 0 && currentFiles[activeFileIndex]) {
+      const target = currentFiles[activeFileIndex];
+      if (target.actualFile) {
+        chosen.push(target.actualFile);
+      } else if (target.isDemo) {
+        demoNames.push(target.name);
+      } else {
+        chosen.push(makeRealFile(target));
+      }
     }
 
+    if (demoNames.length > 0 && chosen.length === 0) {
+      setDemoFileWarning(
+        `"${demoNames[0]}" is a demo placeholder — not a real file. ` +
+        `Please tap "+ Upload" to add your actual files.`
+      );
+      setTimeout(() => setDemoFileWarning(null), 5000);
+      return;
+    }
+
+    if (chosen.length === 0) return;
     onConfirmFiles(chosen, autoGrab);
   }, [currentFiles, selectedFileIds, activeFileIndex, onConfirmFiles]);
 
   const handleDirectGrab = useCallback((item?: BrowserFileItem) => {
-    // If user has multi-selected files with the checkbox, grab all selected files!
+    // Collect multi-selected real (non-demo) files first
     const chosen: File[] = [];
+    const demoSelected: string[] = [];
+
     currentFiles.forEach((f) => {
       if (selectedFileIds.has(f.id)) {
-        chosen.push(makeRealFile(f));
+        if (f.actualFile) {
+          chosen.push(f.actualFile);
+        } else if (f.isDemo) {
+          demoSelected.push(f.name);
+        } else {
+          chosen.push(makeRealFile(f));
+        }
       }
     });
 
     // If no multi-selection, grab the specifically highlighted item
-    if (chosen.length === 0) {
+    if (chosen.length === 0 && demoSelected.length === 0) {
       const target = item || currentFiles[activeFileIndex];
       if (target) {
-        chosen.push(makeRealFile(target));
+        if (target.actualFile) {
+          chosen.push(target.actualFile);
+        } else if (target.isDemo) {
+          demoSelected.push(target.name);
+        } else {
+          chosen.push(makeRealFile(target));
+        }
       }
+    }
+
+    // Warn if demo files were selected - they cannot be sent
+    if (demoSelected.length > 0 && chosen.length === 0) {
+      setDemoFileWarning(
+        `"${demoSelected[0]}" is a demo placeholder and cannot be sent. ` +
+        `Please tap "+ Upload" or "Browse Real Folder" to add your actual files first.`
+      );
+      setTimeout(() => setDemoFileWarning(null), 5000);
+      return;
     }
 
     if (chosen.length === 0) return;
 
     const noticeText = chosen.length === 1
       ? `This file is grabbed: "${chosen[0].name}"`
-      : `${chosen.length} files grabbed from folder! Ready to send.`;
+      : `${chosen.length} files grabbed! Ready to send.`;
 
     setGrabbedNotice(noticeText);
     if (typeof navigator !== "undefined" && navigator.vibrate) {
@@ -567,6 +618,36 @@ export function GestureFileBrowser({
           }}
         >
           <span>{grabbedNotice}</span>
+        </div>
+      )}
+
+      {/* Demo File Warning Overlay */}
+      {demoFileWarning && (
+        <div
+          style={{
+            position: "absolute",
+            top: isMobile ? "20%" : "40%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 100011,
+            background: "linear-gradient(135deg, #f59e0b, #d97706)",
+            color: "#ffffff",
+            padding: isMobile ? "14px 18px" : "20px 28px",
+            borderRadius: 16,
+            fontSize: isMobile ? 12 : 14,
+            fontWeight: 700,
+            boxShadow: "0 20px 50px rgba(245, 158, 11, 0.55)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 10,
+            border: "2px solid rgba(255,255,255,0.4)",
+            maxWidth: "88vw",
+            textAlign: "center",
+          }}
+        >
+          <span style={{ fontSize: 22 }}>⚠️</span>
+          <span>{demoFileWarning}</span>
         </div>
       )}
 
@@ -1054,6 +1135,20 @@ export function GestureFileBrowser({
                         >
                           {file.name}
                         </span>
+                        {file.isDemo && (
+                          <span style={{
+                            fontSize: 9,
+                            fontWeight: 800,
+                            color: "#f59e0b",
+                            border: "1px solid #f59e0b",
+                            borderRadius: 3,
+                            padding: "0px 4px",
+                            flexShrink: 0,
+                            letterSpacing: 0.4,
+                          }}>
+                            DEMO
+                          </span>
+                        )}
                       </div>
 
                       {/* Date Modified (Desktop only) */}
